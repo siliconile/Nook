@@ -11,6 +11,7 @@ struct SettingsView: View {
     @AppStorage(Pref.notes) private var notes = true
     @AppStorage(Pref.shelf) private var shelf = true
     @AppStorage(Pref.openMode) private var openMode = OpenMode.hover.rawValue
+    @AppStorage(Pref.defaultTab) private var defaultTab = NookTab.home.rawValue
     @AppStorage(Pref.hoverDelay) private var hoverDelay = 0.0
     @AppStorage(Pref.focusMinutes) private var focus = 25
     @AppStorage(Pref.breakMinutes) private var shortBreak = 5
@@ -22,6 +23,11 @@ struct SettingsView: View {
     var body: some View {
         Form {
             Section("General") {
+                Picker("Default tab when nothing is playing", selection: $defaultTab) {
+                    ForEach(NookTab.allCases) { tab in
+                        Label(tab.title, systemImage: tab.symbol).tag(tab.rawValue)
+                    }
+                }
                 Toggle("Launch at login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, on in
                         do { on ? try SMAppService.mainApp.register() : try SMAppService.mainApp.unregister() }

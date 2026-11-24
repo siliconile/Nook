@@ -20,8 +20,10 @@ enum Theme {
     static let cardRadius: CGFloat = 12
     static let controlRadius: CGFloat = 8
     /// Backdrop blur around the open notch: how far it extends and how soft its edge is.
-    static let blurOutset: CGFloat = 26
-    static let blurFeather: CGFloat = 14
+    static let blurOutset: CGFloat = 44
+    static let blurFeather: CGFloat = 26
+    /// Strength of the backdrop blur (opacity of the blur layer).
+    static let blurStrength: Double = 0.7
 
     // MARK: Type
     static let title = Font.system(size: 14, weight: .semibold)

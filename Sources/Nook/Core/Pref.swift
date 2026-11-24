@@ -12,6 +12,7 @@ enum Pref {
     static let shelf = "module.shelf"
 
     static let openMode = "openMode"                  // OpenMode raw value
+    static let defaultTab = "defaultTab"              // NookTab raw value shown when nothing plays
     static let hoverDelay = "hoverDelay"              // seconds before hovering opens the notch
     static let focusMinutes = "pomodoro.focusMinutes"
     static let breakMinutes = "pomodoro.breakMinutes"
@@ -23,7 +24,7 @@ enum Pref {
         UserDefaults.standard.register(defaults: [
             nowPlaying: true, hud: false, battery: true, pomodoro: true,
             reminders: true, tasks: true, notes: true, shelf: true,
-            openMode: OpenMode.hover.rawValue, hoverDelay: 0.0,
+            openMode: OpenMode.hover.rawValue, hoverDelay: 0.0, defaultTab: "home",
             focusMinutes: 25, breakMinutes: 5, longBreakMinutes: 15, sessionsBeforeLong: 4,
             lowBatteryThreshold: 20,
         ])

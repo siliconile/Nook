@@ -26,7 +26,7 @@ struct NotchRootView: View {
                         .blur(radius: Theme.blurFeather)
                         .drawingGroup()
                 )
-                .opacity(state.isOpen ? 1 : 0)
+                .opacity(state.isOpen ? Theme.blurStrength : 0)
                 .animation(state.isOpen ? Theme.contentIn : .easeOut(duration: 0.15), value: state.isOpen)
 
             // Notch + its content, scaled together on hover (grows left, right and down).
@@ -143,17 +143,13 @@ struct ExpandedView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Top strip (hardware-notch height): tabs split either side of the notch,
-            // settings at the far right. Keeps the open notch narrow.
-            let tabs = state.enabledTabs
-            let split = (tabs.count + 1) / 2
+            // Top strip (hardware-notch height): all tabs left of the notch, settings right.
             HStack(spacing: 0) {
                 HStack(spacing: 1) {
-                    ForEach(tabs.prefix(split)) { tab in TabButton(tab: tab) }
+                    ForEach(state.enabledTabs) { tab in TabButton(tab: tab) }
                 }
                 Spacer(minLength: state.notchSize.width + 8)
                 HStack(spacing: 1) {
-                    ForEach(tabs.dropFirst(split)) { tab in TabButton(tab: tab) }
                     IconButton(symbol: "gearshape", size: 12, frame: 22, tint: Theme.tertiaryText, help: "Settings") {
                         AppDelegate.shared?.openSettings()
                     }
@@ -198,7 +194,7 @@ private struct TabButton: View {
             Image(systemName: tab.symbol)
                 .font(.system(size: Theme.tabIcon, weight: .semibold))
                 .foregroundStyle(selected ? Theme.primary : (hover ? Theme.secondaryText : Theme.tertiaryText))
-                .frame(width: 22, height: 22)
+                .frame(width: 20, height: 22)
                 .background(selected ? Theme.fillStrong : (hover ? Theme.fill : .clear),
                             in: RoundedRectangle(cornerRadius: 7))
                 .contentShape(Rectangle())

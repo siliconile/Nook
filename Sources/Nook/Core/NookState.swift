@@ -70,7 +70,7 @@ final class NookState: ObservableObject {
     /// Physical notch size of the target screen (set by the window controller).
     @Published var notchSize = CGSize(width: 200, height: 32)
 
-    static let openSize = CGSize(width: 440, height: 192)
+    static let openSize = CGSize(width: 500, height: 192)
     static let sideWidth: CGFloat = 76
     /// Narrow wings while only music is playing, so menu-bar items stay visible.
     static let compactSideWidth: CGFloat = 36
@@ -90,7 +90,11 @@ final class NookState: ObservableObject {
     }
 
     func open(tab: NookTab? = nil) {
-        if let tab { selectedTab = tab }
+        if let tab {
+            selectedTab = tab
+        } else if !isOpen {
+            selectedTab = defaultTab
+        }
         guard !isOpen else { return }
         withAnimation(Theme.shapeSpring) { isOpen = true }
     }
@@ -126,6 +130,17 @@ final class NookState: ObservableObject {
         let base = CGSize(width: notchSize.width + closedSideWidth * 2, height: notchSize.height)
         _ = hovering // hover is applied as a scale of the whole notch in NotchRootView
         return base
+    }
+
+    /// Tab shown on open: Now Playing while something plays, otherwise the user's choice.
+    var defaultTab: NookTab {
+        let enabled = enabledTabs
+        if enabled.contains(.home), UserDefaults.standard.bool(forKey: Pref.nowPlaying),
+           NowPlayingModel.shared.isPlaying {
+            return .home
+        }
+        let chosen = NookTab(rawValue: UserDefaults.standard.string(forKey: Pref.defaultTab) ?? "") ?? .home
+        return enabled.contains(chosen) ? chosen : (enabled.first ?? .home)
     }
 
     var enabledTabs: [NookTab] {
