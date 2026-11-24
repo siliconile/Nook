@@ -269,22 +269,23 @@ struct RemindersView: View {
                 unauthorizedContent
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear {
             model.start()
         }
     }
 
     private var authorizedContent: some View {
-        VStack(spacing: Theme.smallSpacing) {
+        VStack(spacing: 0) {
             HStack(spacing: Theme.smallSpacing) {
-                Image(systemName: "plus.circle")
-                    .font(.system(size: Theme.rowIcon))
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 14))
                     .foregroundStyle(Theme.tertiaryText)
                 TextField("Add a reminder", text: $newReminderTitle)
                     .textFieldStyle(.plain)
                     .font(Theme.body)
                     .foregroundStyle(Theme.primary)
+                    .focusEffectDisabled()
                     .focused($fieldFocused)
                     .onSubmit {
                         submitNewReminder()
@@ -294,67 +295,78 @@ struct RemindersView: View {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: Theme.smallIcon))
                             .foregroundStyle(Theme.tertiaryText)
-                            .frame(width: 24, height: 24)
+                            .frame(width: 20, height: 20)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, Theme.spacing)
-            .frame(height: 30)
-            .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+            .padding(.horizontal, 10)
+            .frame(height: NookState.ListMetrics.inputHeight)
+            .background(Theme.fill, in: RoundedRectangle(cornerRadius: 10))
+
+            Spacer()
+                .frame(height: NookState.ListMetrics.gap)
 
             if model.reminders.isEmpty {
-                VStack(spacing: Theme.smallSpacing) {
+                VStack(spacing: 4) {
                     Image(systemName: "checkmark.circle")
-                        .font(.system(size: Theme.controlIcon))
+                        .font(.system(size: 18))
                         .foregroundStyle(Theme.tertiaryText)
                     Text("No reminders")
                         .font(Theme.caption)
                         .foregroundStyle(Theme.tertiaryText)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity)
+                .frame(height: NookState.ListMetrics.emptyHeight)
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: 2) {
+                    LazyVStack(spacing: 0) {
                         ForEach(model.reminders) { item in
                             reminderRow(item)
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
+                Spacer()
+                    .frame(height: NookState.ListMetrics.gap)
 
                 HStack(spacing: Theme.smallSpacing) {
-                    Text("\(model.reminders.count) left")
+                    Text("\(model.reminders.count) reminders")
                         .font(Theme.caption)
                         .foregroundStyle(Theme.tertiaryText)
                     Spacer()
                 }
+                .padding(.horizontal, 10)
+                .frame(height: NookState.ListMetrics.footerHeight)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     private func reminderRow(_ item: ReminderItem) -> some View {
         let isCompleting = model.completingIDs.contains(item.id)
         let isHovered = hoveredID == item.id
-        return HStack(spacing: Theme.smallSpacing) {
+        return HStack(spacing: 10) {
             Button {
                 model.toggleComplete(item.id)
             } label: {
                 Image(systemName: isCompleting ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: Theme.rowIcon))
+                    .font(.system(size: 16))
                     .foregroundStyle(isCompleting ? Color.green : Theme.tertiaryText)
-                    .frame(width: 24, height: 24)
+                    .frame(width: 16, height: 16)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
             Text(item.title)
                 .font(Theme.body)
+                .lineLimit(1)
+                .multilineTextAlignment(.leading)
                 .strikethrough(isCompleting, color: Theme.tertiaryText)
                 .foregroundStyle(isCompleting ? Theme.tertiaryText : Theme.primary)
-                .lineLimit(1)
-
-            Spacer(minLength: Theme.smallSpacing)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             if let due = item.dueDate {
                 Text(Self.formatRelativeDate(due, hasTime: item.hasDueTime))
@@ -368,11 +380,11 @@ struct RemindersView: View {
                 .frame(width: 7, height: 7)
                 .help(item.listTitle)
         }
-        .padding(.horizontal, Theme.smallSpacing)
-        .frame(height: 28)
+        .padding(.horizontal, 10)
+        .frame(height: NookState.ListMetrics.rowHeight)
         .background(
             isHovered ? Theme.fill : .clear,
-            in: RoundedRectangle(cornerRadius: Theme.controlRadius)
+            in: RoundedRectangle(cornerRadius: 8)
         )
         .contentShape(Rectangle())
         .onHover { hovering in
@@ -388,7 +400,7 @@ struct RemindersView: View {
     private var unauthorizedContent: some View {
         VStack(spacing: Theme.smallSpacing) {
             Image(systemName: "list.bullet.circle")
-                .font(.system(size: Theme.controlIcon))
+                .font(.system(size: 18))
                 .foregroundStyle(Theme.tertiaryText)
 
             Text("Reminders access required")

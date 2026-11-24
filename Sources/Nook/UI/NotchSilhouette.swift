@@ -12,10 +12,12 @@ struct NotchSilhouette: Shape {
     /// Extra growth on left/right/bottom (used for the feathered blur mask).
     var outset: CGFloat = 0
 
-    var animatableData: AnimatablePair<CGFloat, AnimatablePair<CGFloat, CGFloat>> {
-        get { AnimatablePair(progress, AnimatablePair(closedSize.width, closedSize.height)) }
+    var animatableData: AnimatablePair<AnimatablePair<CGFloat, CGFloat>, AnimatablePair<CGFloat, CGFloat>> {
+        get { AnimatablePair(AnimatablePair(progress, openSize.height),
+                             AnimatablePair(closedSize.width, closedSize.height)) }
         set {
-            progress = newValue.first
+            progress = newValue.first.first
+            openSize.height = newValue.first.second
             closedSize = CGSize(width: newValue.second.first, height: newValue.second.second)
         }
     }

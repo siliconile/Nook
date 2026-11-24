@@ -147,43 +147,54 @@ final class ShelfStore: ObservableObject {
 struct ShelfView: View {
     @ObservedObject private var store = ShelfStore.shared
     @ObservedObject private var state = NookState.shared
+    @State private var clearHovered = false
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: Theme.cardRadius)
-                .fill(state.isDropTargeted ? Color.accentColor.opacity(0.08) : .clear)
-            content
-        }
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.cardRadius)
-                .strokeBorder(
-                    state.isDropTargeted ? Color.accentColor : Theme.separator,
-                    style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])
-                )
-        )
-        .overlay(alignment: .topTrailing) {
+        VStack(spacing: 0) {
+            ZStack {
+                RoundedRectangle(cornerRadius: Theme.cardRadius)
+                    .fill(state.isDropTargeted ? Color.accentColor.opacity(0.08) : .clear)
+                content
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.cardRadius)
+                    .strokeBorder(
+                        state.isDropTargeted ? Color.accentColor : Theme.separator,
+                        style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])
+                    )
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
             if !store.items.isEmpty {
-                Button("Clear") { store.clear() }
-                    .font(Theme.caption)
-                    .foregroundStyle(Theme.secondaryText)
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, Theme.smallSpacing)
-                    .frame(minHeight: 24)
-                    .contentShape(Rectangle())
-                    .help("Remove all files from the shelf")
-                    .padding(.top, 4)
-                    .padding(.trailing, Theme.smallSpacing)
+                Spacer()
+                    .frame(height: NookState.ListMetrics.gap)
+
+                HStack(spacing: Theme.smallSpacing) {
+                    Text("\(store.items.count) \(store.items.count == 1 ? "item" : "items")")
+                        .font(Theme.caption)
+                        .foregroundStyle(Theme.tertiaryText)
+                    Spacer()
+                    Button("Clear") { store.clear() }
+                        .font(Theme.caption)
+                        .foregroundStyle(clearHovered ? Theme.primary : Theme.secondaryText)
+                        .buttonStyle(.plain)
+                        .contentShape(Rectangle())
+                        .onHover { clearHovered = $0 }
+                        .help("Remove all files from the shelf")
+                }
+                .padding(.horizontal, 10)
+                .frame(height: NookState.ListMetrics.footerHeight)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     @ViewBuilder
     private var content: some View {
         if store.items.isEmpty {
-            VStack(spacing: Theme.smallSpacing) {
+            VStack(spacing: 4) {
                 Image(systemName: "tray")
-                    .font(.system(size: Theme.controlIcon))
+                    .font(.system(size: 18))
                     .foregroundStyle(Theme.tertiaryText)
                 Text("Drop files here")
                     .font(Theme.caption)
@@ -197,8 +208,7 @@ struct ShelfView: View {
                         ShelfTile(item: item)
                     }
                 }
-                .padding(.leading, Theme.spacing)
-                .padding(.trailing, 48)
+                .padding(.horizontal, 10)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }

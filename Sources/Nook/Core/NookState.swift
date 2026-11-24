@@ -70,7 +70,49 @@ final class NookState: ObservableObject {
     /// Physical notch size of the target screen (set by the window controller).
     @Published var notchSize = CGSize(width: 200, height: 32)
 
+    /// Base open size; list/notes tabs grow taller with their content (see `openSize`).
     static let openSize = CGSize(width: 500, height: 192)
+    static let maxOpenHeight: CGFloat = 340
+
+    /// Shared list metrics, also used by module views so the computed height matches.
+    enum ListMetrics {
+        static let inputHeight: CGFloat = 32
+        static let rowHeight: CGFloat = 30
+        static let gap: CGFloat = 8          // between input, list and footer
+        static let footerHeight: CGFloat = 16
+        static let emptyHeight: CGFloat = 64
+        static let noteLineHeight: CGFloat = 18
+    }
+
+    /// Open size for the selected tab.
+    var openSize: CGSize {
+        CGSize(width: Self.openSize.width, height: openHeight(for: selectedTab))
+    }
+
+    private func openHeight(for tab: NookTab) -> CGFloat {
+        typealias M = ListMetrics
+        let chrome = notchSize.height + Theme.topGap + Theme.bottomPad
+        func list(_ count: Int) -> CGFloat {
+            guard count > 0 else { return M.inputHeight + M.gap + M.emptyHeight }
+            return M.inputHeight + M.gap + CGFloat(count) * M.rowHeight + M.gap + M.footerHeight
+        }
+        let content: CGFloat
+        switch tab {
+        case .tasks:
+            content = list(TasksStore.shared.items.count)
+        case .reminders:
+            content = RemindersModel.shared.authorizationStatus == .fullAccess
+                ? list(RemindersModel.shared.reminders.count) : 0
+        case .notes:
+            // Rough line estimate: explicit lines plus wrapping at ~60 characters.
+            let lines = NotesStore.shared.text.split(separator: "\n", omittingEmptySubsequences: false)
+                .reduce(0) { $0 + max(1, Int(ceil(Double($1.count) / 60))) }
+            content = CGFloat(max(4, lines)) * M.noteLineHeight + 20 + M.gap + M.footerHeight
+        default:
+            content = 0
+        }
+        return min(Self.maxOpenHeight, max(Self.openSize.height, chrome + content))
+    }
     static let sideWidth: CGFloat = 76
     /// Narrow wings while only music is playing, so menu-bar items stay visible.
     static let compactSideWidth: CGFloat = 36
@@ -122,14 +164,14 @@ final class NookState: ObservableObject {
 
     /// Size of the black notch shape for the current state (excluding shadow).
     var contentSize: CGSize {
-        if isOpen { return Self.openSize }
+        if isOpen { return openSize }
         return closedContentSize(hovering: false)
     }
 
     /// Level-style activity (volume, brightness, charging): shown in wider wings beside
     /// the hardware notch.
     var isLevelActivity: Bool { activity?.progress != nil }
-    static let levelSideWidth: CGFloat = 72
+    static let levelSideWidth: CGFloat = 64
 
     /// Closed outline size; hovering lifts it a little in every direction.
     func closedContentSize(hovering: Bool) -> CGSize {

@@ -103,18 +103,21 @@ final class TasksStore: ObservableObject {
 struct TasksView: View {
     @ObservedObject private var store = TasksStore.shared
     @State private var draft = ""
+    @State private var clearHovered = false
     @FocusState private var fieldFocused: Bool
 
     var body: some View {
-        VStack(spacing: Theme.smallSpacing) {
+        VStack(spacing: 0) {
             addField
+
+            Spacer()
+                .frame(height: NookState.ListMetrics.gap)
 
             if store.items.isEmpty {
                 emptyState
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: 2) {
+                    LazyVStack(spacing: 0) {
                         ForEach(store.items) { item in
                             TaskRow(item: item) {
                                 store.toggle(id: item.id)
@@ -124,10 +127,15 @@ struct TasksView: View {
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
+                Spacer()
+                    .frame(height: NookState.ListMetrics.gap)
 
                 footer
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear { fieldFocused = true }
     }
 
@@ -135,13 +143,14 @@ struct TasksView: View {
 
     private var addField: some View {
         HStack(spacing: Theme.smallSpacing) {
-            Image(systemName: "plus.circle")
-                .font(.system(size: Theme.rowIcon))
+            Image(systemName: "plus.circle.fill")
+                .font(.system(size: 14))
                 .foregroundStyle(Theme.tertiaryText)
             TextField("Add a task", text: $draft)
                 .textFieldStyle(.plain)
                 .font(Theme.body)
                 .foregroundStyle(Theme.primary)
+                .focusEffectDisabled()
                 .focused($fieldFocused)
                 .onSubmit(addDraft)
             if !draft.isEmpty {
@@ -149,15 +158,15 @@ struct TasksView: View {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: Theme.smallIcon))
                         .foregroundStyle(Theme.tertiaryText)
-                        .frame(width: 24, height: 24)
+                        .frame(width: 20, height: 20)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, Theme.spacing)
-        .frame(height: 30)
-        .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        .padding(.horizontal, 10)
+        .frame(height: NookState.ListMetrics.inputHeight)
+        .background(Theme.fill, in: RoundedRectangle(cornerRadius: 10))
     }
 
     private var footer: some View {
@@ -170,21 +179,26 @@ struct TasksView: View {
                 Button("Clear completed") { store.clearCompleted() }
                     .font(Theme.caption)
                     .buttonStyle(.plain)
-                    .foregroundStyle(Theme.secondaryText)
+                    .foregroundStyle(clearHovered ? Theme.primary : Theme.secondaryText)
                     .contentShape(Rectangle())
+                    .onHover { clearHovered = $0 }
             }
         }
+        .padding(.horizontal, 10)
+        .frame(height: NookState.ListMetrics.footerHeight)
     }
 
     private var emptyState: some View {
-        VStack(spacing: Theme.smallSpacing) {
+        VStack(spacing: 4) {
             Image(systemName: "checklist")
-                .font(.system(size: Theme.controlIcon))
+                .font(.system(size: 18))
                 .foregroundStyle(Theme.tertiaryText)
             Text("No tasks yet")
                 .font(Theme.caption)
                 .foregroundStyle(Theme.tertiaryText)
         }
+        .frame(maxWidth: .infinity)
+        .frame(height: NookState.ListMetrics.emptyHeight)
     }
 
     private func addDraft() {
@@ -202,12 +216,12 @@ private struct TaskRow: View {
     @State private var hovered = false
 
     var body: some View {
-        HStack(spacing: Theme.smallSpacing) {
+        HStack(spacing: 10) {
             Button(action: onToggle) {
                 Image(systemName: item.isDone ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: Theme.rowIcon))
+                    .font(.system(size: 16))
                     .foregroundStyle(item.isDone ? Color.green : Theme.tertiaryText)
-                    .frame(width: 24, height: 24)
+                    .frame(width: 16, height: 16)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -215,27 +229,27 @@ private struct TaskRow: View {
             Text(item.title)
                 .font(Theme.body)
                 .lineLimit(1)
+                .multilineTextAlignment(.leading)
                 .strikethrough(item.isDone, color: Theme.tertiaryText)
                 .foregroundStyle(item.isDone ? Theme.tertiaryText : Theme.primary)
-
-            Spacer(minLength: Theme.smallSpacing)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
             if hovered {
                 IconButton(
                     symbol: "trash",
-                    size: Theme.rowIcon,
-                    frame: 24,
+                    size: 12,
+                    frame: 22,
                     tint: Theme.secondaryText,
                     help: "Delete",
                     action: onDelete
                 )
             }
         }
-        .padding(.horizontal, Theme.smallSpacing)
-        .frame(height: 28)
+        .padding(.horizontal, 10)
+        .frame(height: NookState.ListMetrics.rowHeight)
         .background(
             hovered ? Theme.fill : .clear,
-            in: RoundedRectangle(cornerRadius: Theme.controlRadius)
+            in: RoundedRectangle(cornerRadius: 8)
         )
         .contentShape(Rectangle())
         .onHover { hovered = $0 }

@@ -18,7 +18,7 @@ enum Snapshot {
 
         let state = NookState.shared
         state.notchSize = CGSize(width: 185, height: 32)
-        let size = CGSize(width: NookState.openSize.width + 2 * (Theme.blurOutset + Theme.blurFeather * 2), height: NookState.openSize.height + Theme.blurOutset + Theme.blurFeather * 2)
+        let size = CGSize(width: NookState.openSize.width + 2 * (Theme.blurOutset + Theme.blurFeather * 2), height: NookState.maxOpenHeight + Theme.blurOutset + Theme.blurFeather * 2)
 
         func render(_ name: String) {
             let view = NotchRootView().environmentObject(state)
@@ -38,6 +38,7 @@ enum Snapshot {
         render("closed-battery")
         // Let the real Now Playing pipeline run briefly so `open-home` shows live data.
         NowPlayingModel.shared.start()
+        RemindersModel.shared.start() // read-only fetch, so list heights can be checked
         RunLoop.main.run(until: Date().addingTimeInterval(3))
         state.isOpen = true
         render("open-home-live")

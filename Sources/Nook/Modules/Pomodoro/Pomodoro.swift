@@ -199,11 +199,11 @@ struct PomodoroView: View {
     @ObservedObject private var model = PomodoroModel.shared
 
     var body: some View {
-        HStack(spacing: 28) {
+        HStack(alignment: .center, spacing: 28) {
             ring
             controls
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 
     // MARK: - Ring
@@ -273,9 +273,9 @@ struct PomodoroView: View {
             HStack(spacing: Theme.spacing) {
                 Button { model.isRunning ? model.pause() : model.start() } label: {
                     Image(systemName: model.isRunning ? "pause.fill" : "play.fill")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: Theme.rowIcon, weight: .semibold))
                         .foregroundStyle(model.phase.tint)
-                        .frame(width: 40, height: 40)
+                        .frame(width: 36, height: 36)
                         .background(model.phase.tint.opacity(0.2), in: Circle())
                         .contentShape(Circle())
                 }
@@ -284,7 +284,7 @@ struct PomodoroView: View {
 
                 IconButton(
                     symbol: "arrow.counterclockwise",
-                    size: 16,
+                    size: Theme.rowIcon,
                     frame: 32,
                     tint: Theme.secondaryText,
                     help: "Reset"
@@ -294,7 +294,7 @@ struct PomodoroView: View {
 
                 IconButton(
                     symbol: "forward.end.fill",
-                    size: 16,
+                    size: Theme.rowIcon,
                     frame: 32,
                     tint: Theme.secondaryText,
                     help: "Skip phase"

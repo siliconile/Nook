@@ -7,11 +7,15 @@ struct NotchRootView: View {
     @ObservedObject private var nowPlaying = NowPlayingModel.shared
     @ObservedObject private var pomodoro = PomodoroModel.shared
     @AppStorage(Pref.nowPlaying) private var nowPlayingEnabled = true
+    // Observed so content-sized tabs (Tasks, Reminders, Notes) resize as they change.
+    @ObservedObject private var tasks = TasksStore.shared
+    @ObservedObject private var reminders = RemindersModel.shared
+    @ObservedObject private var notes = NotesStore.shared
 
     var body: some View {
         // Closed outline (hardware notch + optional wings), slightly larger on hover.
         let closed = state.closedContentSize(hovering: state.isHovering)
-        let open = NookState.openSize
+        let open = state.openSize
         let progress: CGFloat = state.isOpen ? 1 : 0
         let silhouette = NotchSilhouette(progress: progress, closedSize: closed, openSize: open)
 
@@ -61,6 +65,7 @@ struct NotchRootView: View {
             .scaleEffect(state.isHovering && !state.isOpen ? Theme.hoverScale : 1, anchor: .top)
             .animation(Theme.hoverSpring, value: state.isHovering)
         }
+        .animation(Theme.shapeSpring, value: open.height) // tab switch / content growth
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .contentShape(silhouette)
         .modifier(ShelfDropTarget(enabled: !Snapshot.isRendering))

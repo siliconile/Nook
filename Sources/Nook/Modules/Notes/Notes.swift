@@ -47,20 +47,30 @@ struct NotesView: View {
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        VStack(spacing: Theme.smallSpacing) {
+        VStack(spacing: 0) {
             ScrollView(.vertical, showsIndicators: false) {
                 TextField("Start typing…", text: $store.text, axis: .vertical)
                     .textFieldStyle(.plain)
                     .font(Theme.body)
                     .foregroundStyle(Theme.primary)
+                    .lineSpacing(NookState.ListMetrics.noteLineHeight - 16)
+                    .multilineTextAlignment(.leading)
+                    .focusEffectDisabled()
                     .focused($isFocused)
-                    .frame(maxWidth: .infinity, minHeight: 76, alignment: .topLeading)
+                    .frame(
+                        maxWidth: .infinity,
+                        minHeight: NookState.ListMetrics.noteLineHeight * 4,
+                        alignment: .topLeading
+                    )
             }
             .padding(10)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+            .background(Theme.fill, in: RoundedRectangle(cornerRadius: 12))
             .contentShape(Rectangle())
             .onTapGesture { isFocused = true }
+
+            Spacer()
+                .frame(height: NookState.ListMetrics.gap)
 
             HStack(spacing: Theme.smallSpacing) {
                 Text("\(store.characterCount) characters")
@@ -69,8 +79,8 @@ struct NotesView: View {
                 Spacer()
                 IconButton(
                     symbol: copied ? "checkmark" : "doc.on.doc",
-                    size: Theme.rowIcon,
-                    frame: 24,
+                    size: 11,
+                    frame: 20,
                     tint: copied ? .green : Theme.tertiaryText,
                     help: copied ? "Copied" : "Copy"
                 ) {
@@ -79,7 +89,10 @@ struct NotesView: View {
                 .disabled(store.text.isEmpty)
                 .opacity(store.text.isEmpty ? 0.4 : 1)
             }
+            .padding(.horizontal, 10)
+            .frame(height: NookState.ListMetrics.footerHeight)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .onAppear { isFocused = true }
     }
 
