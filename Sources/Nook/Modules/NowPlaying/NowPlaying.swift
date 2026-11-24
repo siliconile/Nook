@@ -62,8 +62,13 @@ final class NowPlayingModel: ObservableObject {
 
     private init() {}
 
+    /// System-wide source (works for browsers too); preferred when available.
+    private lazy var bridge = MediaBridge { [weak self] update in self?.applyBridge(update) }
+    private var bridgeDelivered = false
+
     func start() {
         loadMediaRemoteIfNeeded()
+        if MediaBridge.isAvailable { bridge.start() }
         guard pollTimer == nil else { return }
         poll()
         let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -76,6 +81,8 @@ final class NowPlayingModel: ObservableObject {
     }
 
     func stop() {
+        bridge.stop()
+        bridgeDelivered = false
         pollTimer?.invalidate()
         pollTimer = nil
         isPolling = false
@@ -88,15 +95,11 @@ final class NowPlayingModel: ObservableObject {
 
         switch activeSource {
         case .mediaRemote:
-            if let send = mrSendCommand {
-                _ = send(2, nil)
-            }
+            sendMR(2)
         case .appleScript(let bundleID):
             runAppleScriptCommand(bundleID: bundleID, command: "playpause")
         case .none:
-            if let send = mrSendCommand {
-                _ = send(2, nil)
-            }
+            sendMR(2)
         }
         scheduleQuickPoll()
     }
@@ -107,15 +110,11 @@ final class NowPlayingModel: ObservableObject {
 
         switch activeSource {
         case .mediaRemote:
-            if let send = mrSendCommand {
-                _ = send(4, nil)
-            }
+            sendMR(4)
         case .appleScript(let bundleID):
             runAppleScriptCommand(bundleID: bundleID, command: "next track")
         case .none:
-            if let send = mrSendCommand {
-                _ = send(4, nil)
-            }
+            sendMR(4)
         }
         scheduleQuickPoll()
     }
@@ -126,17 +125,54 @@ final class NowPlayingModel: ObservableObject {
 
         switch activeSource {
         case .mediaRemote:
-            if let send = mrSendCommand {
-                _ = send(5, nil)
-            }
+            sendMR(5)
         case .appleScript(let bundleID):
             runAppleScriptCommand(bundleID: bundleID, command: "previous track")
         case .none:
-            if let send = mrSendCommand {
-                _ = send(5, nil)
-            }
+            sendMR(5)
         }
         scheduleQuickPoll()
+    }
+
+    private func sendMR(_ command: Int) {
+        if bridge.isRunning {
+            MediaBridge.send(command: command)
+        } else if let send = mrSendCommand {
+            _ = send(UInt32(command), nil)
+        }
+    }
+
+    private func applyBridge(_ u: MediaBridge.Update) {
+        bridgeDelivered = true
+        guard !u.title.isEmpty else {
+            // Nothing reported system-wide: let the AppleScript path decide.
+            if case .mediaRemote = activeSource { clearState() }
+            return
+        }
+        activeSource = .mediaRemote
+        if sourceBundleID != u.bundleID { sourceBundleID = u.bundleID }
+        let rate = u.rate > 0 ? u.rate : (u.isPlaying ? 1 : 0)
+        var e = u.elapsed
+        if let ts = u.timestamp, u.isPlaying { e += max(0, Date().timeIntervalSince(ts)) * rate }
+        if u.duration > 0 { e = min(e, u.duration) }
+
+        let trackKey = "bridge:\(u.title)|\(u.artist)|\(u.album)"
+        if title != u.title { title = u.title }
+        if artist != u.artist { artist = u.artist }
+        if album != u.album { album = u.album }
+        if isPlaying != u.isPlaying { isPlaying = u.isPlaying }
+        if abs(duration - u.duration) > 0.01 { duration = u.duration }
+        elapsed = e
+        lastElapsedUpdate = Date()
+
+        if let data = u.artwork {
+            currentArtworkKey = trackKey
+            updateArtwork(NSImage(data: data))
+        } else if currentArtworkKey != trackKey {
+            // New track without artwork data.
+            currentArtworkKey = trackKey
+            updateArtwork(nil)
+        }
     }
 
     private func scheduleQuickPoll() {
@@ -174,6 +210,9 @@ final class NowPlayingModel: ObservableObject {
     // MARK: - Polling Pipeline
 
     private func poll() {
+        // The bridge pushes updates itself; only poll when it isn't working.
+        // (Skipping AppleScript also avoids needless Automation prompts.)
+        if bridge.isRunning && bridgeDelivered { return }
         guard !isPolling else { return }
         isPolling = true
 

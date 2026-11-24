@@ -11,6 +11,7 @@ enum Pref {
     static let notes = "module.notes"
     static let shelf = "module.shelf"
 
+    static let openMode = "openMode"                  // OpenMode raw value
     static let hoverDelay = "hoverDelay"              // seconds before hovering opens the notch
     static let focusMinutes = "pomodoro.focusMinutes"
     static let breakMinutes = "pomodoro.breakMinutes"
@@ -22,7 +23,7 @@ enum Pref {
         UserDefaults.standard.register(defaults: [
             nowPlaying: true, hud: false, battery: true, pomodoro: true,
             reminders: true, tasks: true, notes: true, shelf: true,
-            hoverDelay: 0.15,
+            openMode: OpenMode.hover.rawValue, hoverDelay: 0.0,
             focusMinutes: 25, breakMinutes: 5, longBreakMinutes: 15, sessionsBeforeLong: 4,
             lowBatteryThreshold: 20,
         ])
@@ -35,4 +36,11 @@ enum Pref {
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
+}
+
+/// How the closed notch opens.
+enum OpenMode: String, CaseIterable, Identifiable {
+    case hover, click
+    var id: String { rawValue }
+    var title: String { self == .hover ? "Hover" : "Click" }
 }

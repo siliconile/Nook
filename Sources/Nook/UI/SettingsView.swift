@@ -10,7 +10,8 @@ struct SettingsView: View {
     @AppStorage(Pref.tasks) private var tasks = true
     @AppStorage(Pref.notes) private var notes = true
     @AppStorage(Pref.shelf) private var shelf = true
-    @AppStorage(Pref.hoverDelay) private var hoverDelay = 0.15
+    @AppStorage(Pref.openMode) private var openMode = OpenMode.hover.rawValue
+    @AppStorage(Pref.hoverDelay) private var hoverDelay = 0.0
     @AppStorage(Pref.focusMinutes) private var focus = 25
     @AppStorage(Pref.breakMinutes) private var shortBreak = 5
     @AppStorage(Pref.longBreakMinutes) private var longBreak = 15
@@ -26,7 +27,13 @@ struct SettingsView: View {
                         do { on ? try SMAppService.mainApp.register() : try SMAppService.mainApp.unregister() }
                         catch { launchAtLogin = SMAppService.mainApp.status == .enabled }
                     }
-                Slider(value: $hoverDelay, in: 0...1, step: 0.05) { Text("Hover delay: \(hoverDelay, specifier: "%.2f")s") }
+                Picker("Open notch on", selection: $openMode) {
+                    ForEach(OpenMode.allCases) { Text($0.title).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                if openMode == OpenMode.hover.rawValue {
+                    Slider(value: $hoverDelay, in: 0...1, step: 0.05) { Text("Hover delay: \(hoverDelay, specifier: "%.2f")s") }
+                }
             }
             Section("Modules") {
                 Toggle("Now Playing", isOn: $nowPlaying)

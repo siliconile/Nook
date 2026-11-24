@@ -64,7 +64,7 @@ final class NotchWindowController {
                 .store(in: &bag)
         }
 
-        let mask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged, .leftMouseUp]
+        let mask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged, .leftMouseUp, .leftMouseDown]
         if let g = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { [weak self] e in
             MainActor.assumeIsolated { self?.handle(e) }
         }) { monitors.append(g) }
@@ -99,14 +99,16 @@ final class NotchWindowController {
         guard let screen = targetScreen else { return .zero }
         let size = state.contentSize
         let f = screen.frame
+        // Extends past the top edge so a pointer slammed against the screen edge
+        // (y == maxY, which NSRect.contains excludes) still counts as inside.
         return NSRect(x: f.midX - size.width / 2 - padding, y: f.maxY - size.height - padding,
-                      width: size.width + padding * 2, height: size.height + padding)
+                      width: size.width + padding * 2, height: size.height + padding + 10)
     }
 
     private func handle(_ event: NSEvent) {
         guard !hiddenForFullscreen else { return }
         let p = NSEvent.mouseLocation
-        let inside = activeRect(padding: state.isOpen ? 12 : 4).contains(p)
+        let inside = activeRect(padding: state.isOpen ? 12 : 6).contains(p)
 
         // File drag towards the notch -> open the shelf so it can receive the drop.
         if event.type == .leftMouseDragged, !state.isOpen, inside,
@@ -125,13 +127,20 @@ final class NotchWindowController {
 
         if inside {
             panel.ignoresMouseEvents = false
-            guard !state.isOpen, hoverTask == nil else { return }
+            guard !state.isOpen else { return }
+            let clickMode = UserDefaults.standard.string(forKey: Pref.openMode) == OpenMode.click.rawValue
+            if clickMode {
+                if event.type == .leftMouseDown { state.open() }
+                return
+            }
             let delay = UserDefaults.standard.double(forKey: Pref.hoverDelay)
+            if delay <= 0 { state.open(); return }
+            guard hoverTask == nil else { return }
             hoverTask = Task { [weak self] in
                 try? await Task.sleep(for: .seconds(delay))
                 guard let self, !Task.isCancelled else { return }
                 self.hoverTask = nil
-                if self.activeRect(padding: 4).contains(NSEvent.mouseLocation) { self.state.open() }
+                if self.activeRect(padding: 6).contains(NSEvent.mouseLocation) { self.state.open() }
             }
         } else {
             hoverTask?.cancel(); hoverTask = nil
