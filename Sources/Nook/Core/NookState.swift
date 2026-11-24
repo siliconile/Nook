@@ -80,7 +80,7 @@ final class NookState: ObservableObject {
     /// Pop a transient activity out of the notch. Ignored while the notch is open.
     func show(_ new: NookActivity) {
         activityTask?.cancel()
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { activity = new }
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.85)) { activity = new }
         let id = new.id
         activityTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(new.duration))
@@ -130,7 +130,7 @@ final class NookState: ObservableObject {
     /// hardware notch instead of in the narrow wings.
     var isLevelActivity: Bool { activity?.progress != nil }
     static let levelSideWidth: CGFloat = 62
-    static let levelRowHeight: CGFloat = 34
+    static let levelRowHeight: CGFloat = 24
 
     /// Closed outline size; hovering lifts it a little in every direction.
     func closedContentSize(hovering: Bool) -> CGSize {

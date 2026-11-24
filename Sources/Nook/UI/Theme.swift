@@ -65,7 +65,7 @@ extension AnyTransition {
     static var notchActivity: AnyTransition {
         .asymmetric(
             insertion: .modifier(active: RevealModifier(progress: 0), identity: RevealModifier(progress: 1))
-                .animation(.easeOut(duration: 0.16).delay(0.1)),
+                .animation(.easeOut(duration: 0.1).delay(0.03)),
             removal: .identity
         )
     }

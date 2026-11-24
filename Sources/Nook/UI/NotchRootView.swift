@@ -46,7 +46,7 @@ struct NotchRootView: View {
                     Group {
                         if let a = state.activity, let progress = a.progress {
                             LevelRow(activity: a, progress: progress)
-                                .padding(.top, state.notchSize.height)
+                                .padding(.top, state.notchSize.height - 3) // hug the notch
                                 .frame(width: state.contentSize.width, height: state.contentSize.height, alignment: .top)
                         } else {
                             closedContent
@@ -133,9 +133,9 @@ private struct LevelRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: activity.symbol)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(activity.tint)
-                .frame(width: 22)
+                .frame(width: 20)
                 .contentTransition(.symbolEffect(.replace))
             SegmentedLevel(progress: progress, tint: activity.tint)
             Text(activity.trailingText ?? "\(Int((max(0, min(1, progress)) * 100).rounded()))")
@@ -144,7 +144,7 @@ private struct LevelRow: View {
                 .frame(width: 34, alignment: .trailing)
         }
         .padding(.horizontal, 22)
-        .frame(height: NookState.levelRowHeight - 6)
+        .frame(height: NookState.levelRowHeight - 2)
     }
 }
 
@@ -167,7 +167,7 @@ private struct SegmentedLevel: View {
                     }
             }
         }
-        .frame(height: 6)
+        .frame(height: 5)
         .animation(.easeOut(duration: 0.12), value: progress)
     }
 }
