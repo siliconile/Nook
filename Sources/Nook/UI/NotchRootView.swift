@@ -46,7 +46,7 @@ struct NotchRootView: View {
                     Group {
                         if let a = state.activity, let progress = a.progress {
                             LevelRow(activity: a, progress: progress)
-                                .padding(.top, state.notchSize.height - 3) // hug the notch
+                                .padding(.top, state.notchSize.height - 6) // overlap into the notch strip (icon/value sit beside the cutout)
                                 .frame(width: state.contentSize.width, height: state.contentSize.height, alignment: .top)
                         } else {
                             closedContent
@@ -133,18 +133,18 @@ private struct LevelRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: activity.symbol)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(activity.tint)
-                .frame(width: 20)
+                .frame(width: 18)
                 .contentTransition(.symbolEffect(.replace))
             SegmentedLevel(progress: progress, tint: activity.tint)
             Text(activity.trailingText ?? "\(Int((max(0, min(1, progress)) * 100).rounded()))")
-                .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                .font(.system(size: 11, weight: .semibold).monospacedDigit())
                 .foregroundStyle(Theme.secondaryText)
-                .frame(width: 34, alignment: .trailing)
+                .frame(width: 32, alignment: .trailing)
         }
         .padding(.horizontal, 22)
-        .frame(height: NookState.levelRowHeight - 2)
+        .frame(height: 20)
     }
 }
 
@@ -167,7 +167,7 @@ private struct SegmentedLevel: View {
                     }
             }
         }
-        .frame(height: 5)
+        .frame(height: 4)
         .animation(.easeOut(duration: 0.12), value: progress)
     }
 }
@@ -201,7 +201,7 @@ private struct ProgressCapsule: View {
                     Capsule().fill(tint).frame(width: g.size.width * max(0, min(1, progress)))
                 }
             }
-            .frame(height: 5)
+            .frame(height: 4)
             .animation(.easeOut(duration: 0.15), value: progress)
     }
 }
