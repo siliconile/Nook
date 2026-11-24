@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let notch = NotchWindowController()
     private var statusItem: NSStatusItem?
     private var settingsWindow: NSWindow?
+    private var updateItem: NSMenuItem?
 
     override init() {
         super.init()
@@ -27,11 +28,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        Pref.migrateLegacyDefaults()
         Pref.registerDefaults()
         installEditMenu()
         notch.start()
         setupStatusItem()
         startModules()
+        Updater.shared.startAutomaticChecks()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -83,6 +86,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Open Nook", action: #selector(openNotch), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self
         menu.addItem(withTitle: "About Nook", action: #selector(showAbout), keyEquivalent: "").target = self
+        let update = menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
+        update.target = self
+        updateItem = update
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Nook", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.menu = menu
@@ -90,6 +96,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openNotch() { NookState.shared.open() }
+
+    @objc private func checkForUpdates() {
+        if Updater.shared.available != nil {
+            Updater.shared.openDownloadPage()
+        } else {
+            Task { await Updater.shared.check(userInitiated: true) }
+        }
+    }
+
+    /// Reflects an available update in the menu-bar menu.
+    func updateMenuChanged() {
+        if let v = Updater.shared.available?.version {
+            updateItem?.title = String(localized: "Download Nook \(v)…")
+        } else {
+            updateItem?.title = String(localized: "Check for Updates…")
+        }
+    }
 
     @objc private func showAbout() {
         NSApp.activate(ignoringOtherApps: true)

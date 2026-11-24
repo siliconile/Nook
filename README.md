@@ -104,7 +104,7 @@ pkill -x Nook; open build/Nook.app
 | Reminders | Reminders (full access) | First launch with Reminders enabled |
 | Spotify / Music fallback | Automation | Only if the system-wide source is unavailable |
 
-Builds are signed ad-hoc with a fixed designated requirement (`identifier "com.local.Nook"`),
+Builds are signed ad-hoc with a fixed designated requirement (`identifier "io.github.siliconile.Nook"`),
 so permissions survive rebuilds. If a permission ever looks "on" but doesn't work
 (e.g. after changing the bundle identifier), remove Nook from that list in
 **System Settings → Privacy & Security** and grant it again.

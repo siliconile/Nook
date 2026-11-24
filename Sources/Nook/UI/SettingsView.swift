@@ -17,6 +17,8 @@ struct SettingsView: View {
     @AppStorage(Pref.breakMinutes) private var shortBreak = 5
     @AppStorage(Pref.longBreakMinutes) private var longBreak = 15
     @AppStorage(Pref.lowBatteryThreshold) private var lowBattery = 20
+    @AppStorage(Pref.autoUpdateCheck) private var autoUpdate = true
+    @ObservedObject private var updater = Updater.shared
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var hudTrusted = HUDController.isTrusted
 
@@ -74,6 +76,35 @@ struct SettingsView: View {
                 Stepper("Focus: \(focus) min", value: $focus, in: 5...120, step: 5)
                 Stepper("Short break: \(shortBreak) min", value: $shortBreak, in: 1...30)
                 Stepper("Long break: \(longBreak) min", value: $longBreak, in: 5...60, step: 5)
+            }
+            Section("Now Playing") {
+                LabeledContent("Source") {
+                    switch NowPlayingModel.shared.source {
+                    case .system: Label("All apps and browsers", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    case .appleScriptOnly: Label("Music and Spotify only", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                    case .off: Text("Off").foregroundStyle(.secondary)
+                    }
+                }
+                if NowPlayingModel.shared.source == .appleScriptOnly {
+                    Text("The system media bridge isn't available on this Mac, so only Music and Spotify can be shown.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Section("Updates") {
+                Toggle("Check for updates automatically", isOn: $autoUpdate)
+                    .onChange(of: autoUpdate) { _, on in
+                        on ? Updater.shared.startAutomaticChecks() : Updater.shared.stopAutomaticChecks()
+                    }
+                HStack {
+                    Text("Version \(Updater.currentVersion)").foregroundStyle(.secondary)
+                    Spacer()
+                    if let v = updater.available?.version {
+                        Button("Download \(v)") { Updater.shared.openDownloadPage() }
+                    } else {
+                        Button("Check Now") { Task { await Updater.shared.check(userInitiated: true) } }
+                            .disabled(updater.isChecking)
+                    }
+                }
             }
             Section("Battery") {
                 Stepper("Low battery alert at \(lowBattery)%", value: $lowBattery, in: 5...50, step: 5)

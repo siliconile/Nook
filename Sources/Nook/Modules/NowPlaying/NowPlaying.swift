@@ -66,6 +66,14 @@ final class NowPlayingModel: ObservableObject {
     private lazy var bridge = MediaBridge { [weak self] update in self?.applyBridge(update) }
     private var bridgeDelivered = false
 
+    /// Which source feeds Now Playing (shown in Settings). The system bridge relies on
+    /// /usr/bin/perl; if a future macOS removes it, Nook falls back to AppleScript.
+    enum Source { case system, appleScriptOnly, off }
+    var source: Source {
+        if pollTimer == nil && !bridge.isRunning { return .off }
+        return bridge.isRunning ? .system : .appleScriptOnly
+    }
+
     func start() {
         loadMediaRemoteIfNeeded()
         if MediaBridge.isAvailable { bridge.start() }

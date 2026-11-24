@@ -19,6 +19,21 @@ enum Pref {
     static let longBreakMinutes = "pomodoro.longBreakMinutes"
     static let sessionsBeforeLong = "pomodoro.sessionsBeforeLong"
     static let lowBatteryThreshold = "battery.lowThreshold"
+    static let autoUpdateCheck = "updates.autoCheck"
+
+    /// One-time copy of settings saved under the old bundle identifier (com.local.Nook),
+    /// so switching to io.github.siliconile.Nook keeps the user's choices.
+    static func migrateLegacyDefaults() {
+        let d = UserDefaults.standard
+        let flag = "migratedFromLegacyBundleID"
+        guard !d.bool(forKey: flag) else { return }
+        if let old = d.persistentDomain(forName: "com.local.Nook") {
+            for (key, value) in old where !key.hasPrefix("NS") && !key.hasPrefix("Apple") && d.object(forKey: key) == nil {
+                d.set(value, forKey: key)
+            }
+        }
+        d.set(true, forKey: flag)
+    }
 
     static func registerDefaults() {
         UserDefaults.standard.register(defaults: [
@@ -26,7 +41,7 @@ enum Pref {
             reminders: true, tasks: true, notes: true, shelf: true,
             openMode: OpenMode.hover.rawValue, hoverDelay: 0.0, defaultTab: "home",
             focusMinutes: 25, breakMinutes: 5, longBreakMinutes: 15, sessionsBeforeLong: 4,
-            lowBatteryThreshold: 20,
+            lowBatteryThreshold: 20, autoUpdateCheck: true,
         ])
     }
 
