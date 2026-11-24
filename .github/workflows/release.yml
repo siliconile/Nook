@@ -1,0 +1,49 @@
+name: Release
+
+# Push a tag like v0.2.0 to build a universal Nook.app and publish it as a GitHub Release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: swift --version
+
+      - name: Build (Apple silicon + Intel)
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          NOOK_VERSION="$VERSION" NOOK_BUILD="${{ github.run_number }}" ./build.sh release --universal
+
+      - name: Package
+        run: scripts/package.sh "$VERSION"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<'NOTES'
+          ## Install
+
+          1. Download **Nook-<version>.zip** below and unzip it.
+          2. Move **Nook.app** to **Applications**.
+          3. Open it. Nook isn't notarized yet, so macOS will block the first launch:
+             open **System Settings → Privacy & Security** and click **Open Anyway**
+             (or run `xattr -dr com.apple.quarantine /Applications/Nook.app`).
+
+          Requires macOS 15 or later. Works on Apple silicon and Intel.
+          Verify the download with the `.sha256` file: `shasum -a 256 -c Nook-<version>.zip.sha256`
+          NOTES
+          sed -i '' "s/<version>/$VERSION/g" notes.md
+          PRERELEASE=""
+          [[ "$VERSION" == *-* ]] && PRERELEASE="--prerelease"
+          gh release create "$GITHUB_REF_NAME" dist/Nook-*.zip dist/Nook-*.zip.sha256 \
+            --title "Nook $VERSION" --notes-file notes.md --generate-notes $PRERELEASE

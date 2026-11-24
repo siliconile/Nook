@@ -1,0 +1,37 @@
+name: Bug report
+description: Something in Nook doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead? Screenshots or a short screen recording help a lot.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Notch / animation, Now Playing, Volume & brightness HUD, Battery, Focus timer, Reminders, Tasks, Notes, Shelf, Settings, Install / launch, Other]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Nook version
+      placeholder: "0.1.0 (menu-bar icon → About, or Finder → Get Info)"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac model
+      placeholder: "macOS 15.3, MacBook Pro 14\" M3"
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Media player / browser used, external displays, other notch apps running, etc.

@@ -10,7 +10,10 @@
 </p>
 
 <p align="center">
-  macOS 15+ · Swift 6 toolchain · SwiftUI + AppKit · MIT licensed
+  <a href="https://github.com/siliconile/Nook/releases/latest"><img src="https://img.shields.io/github/v/release/siliconile/Nook?label=download" alt="Latest release"></a>
+  <a href="https://github.com/siliconile/Nook/actions/workflows/ci.yml"><img src="https://github.com/siliconile/Nook/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/macOS-15%2B-black" alt="macOS 15+">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/siliconile/Nook" alt="MIT license"></a>
 </p>
 
 ---
@@ -54,7 +57,22 @@ double-click to open, right-click to reveal in Finder.
 **Settings** — launch at login, hover vs. click to open, hover delay, default tab when
 nothing is playing, per-module toggles, timer lengths, low-battery threshold.
 
-## Requirements
+## Install
+
+1. Download **Nook-x.y.z.zip** from the [latest release](https://github.com/siliconile/Nook/releases/latest) and unzip it.
+2. Move **Nook.app** to **Applications** and open it.
+3. Nook isn't notarized by Apple yet, so the first launch is blocked. Open
+   **System Settings → Privacy & Security**, scroll down and click **Open Anyway**
+   — or run:
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/Nook.app
+   ```
+
+Works on Apple silicon and Intel Macs running macOS 15 or later. Each release ships a
+`.sha256` file to verify the download.
+
+## Requirements (building from source)
 
 - macOS 15 (Sequoia) or later, Apple silicon or Intel
 - Xcode command line tools / Swift 6 toolchain (`xcode-select --install`)
@@ -62,12 +80,13 @@ nothing is playing, per-module toggles, timer lengths, low-battery threshold.
 ## Build & run
 
 ```bash
-git clone <this repo> Nook && cd Nook
+git clone https://github.com/siliconile/Nook.git && cd Nook
 ./build.sh            # release build -> build/Nook.app
 open build/Nook.app
 ```
 
-`./build.sh debug` builds a debug version. To install, drag `build/Nook.app` into
+`./build.sh debug` builds a debug version; `./build.sh release --universal` builds for
+both Apple silicon and Intel. To install, drag `build/Nook.app` into
 `/Applications`. Nook lives in the menu bar (no Dock icon); use its menu-bar icon for
 **Settings…** and **Quit**.
 
@@ -126,9 +145,10 @@ Tools/        make-icon.swift (regenerates the app icon)
 
 ## Contributing
 
-Issues and pull requests are welcome. Please keep changes focused, follow the existing
-style (Swift 5 language mode, `@MainActor` singletons for models, tokens from `Theme`),
-and check `./build.sh` succeeds before opening a PR.
+Issues, ideas and pull requests are welcome! Start with [CONTRIBUTING.md](CONTRIBUTING.md)
+(setup, project structure, how to add a module), and please follow the
+[Code of Conduct](CODE_OF_CONDUCT.md). Security issues: see [SECURITY.md](SECURITY.md).
+Release notes live in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

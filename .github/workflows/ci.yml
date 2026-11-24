@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: swift --version
+      - name: Build (Apple silicon + Intel)
+        run: ./build.sh release --universal
+      - name: Verify bundle
+        run: |
+          codesign --verify --deep --strict build/Nook.app
+          lipo -archs build/Nook.app/Contents/MacOS/Nook

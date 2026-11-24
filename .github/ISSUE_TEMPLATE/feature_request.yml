@@ -1,0 +1,16 @@
+name: Feature request
+description: Suggest an idea for Nook
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like Nook to do?
+      description: Describe the problem or workflow, not only the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How do you imagine it?
+      description: Sketches, mockups or examples from other apps are welcome.
