@@ -45,9 +45,8 @@ struct NotchRootView: View {
                 } else if state.closedSideWidth > 0 {
                     Group {
                         if let a = state.activity, let progress = a.progress {
-                            LevelRow(activity: a, progress: progress)
-                                .padding(.top, state.notchSize.height - 6) // overlap into the notch strip (icon/value sit beside the cutout)
-                                .frame(width: state.contentSize.width, height: state.contentSize.height, alignment: .top)
+                            LevelWings(activity: a, progress: progress, notchWidth: state.notchSize.width)
+                                .frame(width: state.contentSize.width, height: state.notchSize.height)
                         } else {
                             closedContent
                                 .frame(width: state.contentSize.width, height: state.notchSize.height)
@@ -126,25 +125,35 @@ struct NotchRootView: View {
 }
 
 /// Volume / brightness / charging row under the hardware notch.
-private struct LevelRow: View {
+/// Volume / brightness / charging beside the hardware notch: icon + value on the
+/// left wing, segmented level on the right wing. No downward growth.
+private struct LevelWings: View {
     let activity: NookActivity
     let progress: Double
+    let notchWidth: CGFloat
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: activity.symbol)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(activity.tint)
-                .frame(width: 18)
-                .contentTransition(.symbolEffect(.replace))
-            SegmentedLevel(progress: progress, tint: activity.tint)
-            Text(activity.trailingText ?? "\(Int((max(0, min(1, progress)) * 100).rounded()))")
-                .font(.system(size: 11, weight: .semibold).monospacedDigit())
-                .foregroundStyle(Theme.secondaryText)
-                .frame(width: 32, alignment: .trailing)
+        HStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: activity.symbol)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(activity.tint)
+                    .frame(width: 18)
+                    .contentTransition(.symbolEffect(.replace))
+                Text(activity.trailingText ?? "\(Int((max(0, min(1, progress)) * 100).rounded()))")
+                    .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(Theme.secondaryText)
+                    .lineLimit(1).fixedSize()
+                Spacer(minLength: 0)
+            }
+            .padding(.leading, Theme.closedTopRadius + 10)
+
+            Spacer(minLength: notchWidth + 16)
+
+            ProgressCapsule(progress: progress, tint: activity.tint)
+                .frame(height: 5)
+                .padding(.trailing, Theme.closedTopRadius + 12)
         }
-        .padding(.horizontal, 22)
-        .frame(height: 20)
     }
 }
 
