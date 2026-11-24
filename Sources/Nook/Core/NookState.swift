@@ -70,8 +70,10 @@ final class NookState: ObservableObject {
     /// Physical notch size of the target screen (set by the window controller).
     @Published var notchSize = CGSize(width: 200, height: 32)
 
-    static let openSize = CGSize(width: 600, height: 250)
+    static let openSize = CGSize(width: 540, height: 224)
     static let sideWidth: CGFloat = 76
+    /// Narrow wings while only music is playing, so menu-bar items stay visible.
+    static let compactSideWidth: CGFloat = 34
 
     private var activityTask: Task<Void, Never>?
 
@@ -104,13 +106,19 @@ final class NookState: ObservableObject {
             || (UserDefaults.standard.bool(forKey: Pref.nowPlaying) && NowPlayingModel.shared.isPlaying)
     }
 
+    /// Width of each wing beside the hardware notch while closed (0 = no wings).
+    var closedSideWidth: CGFloat {
+        if activity != nil || PomodoroModel.shared.isRunning { return Self.sideWidth }
+        if UserDefaults.standard.bool(forKey: Pref.nowPlaying) && NowPlayingModel.shared.isPlaying {
+            return Self.compactSideWidth
+        }
+        return 0
+    }
+
     /// Size of the black notch shape for the current state (excluding shadow).
     var contentSize: CGSize {
         if isOpen { return Self.openSize }
-        if hasClosedContent {
-            return CGSize(width: notchSize.width + Self.sideWidth * 2, height: notchSize.height)
-        }
-        return notchSize
+        return CGSize(width: notchSize.width + closedSideWidth * 2, height: notchSize.height)
     }
 
     var enabledTabs: [NookTab] {

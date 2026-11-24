@@ -32,7 +32,12 @@ enum Snapshot {
         render("closed-volume")
         state.show(NookActivity(id: "battery", symbol: "bolt.fill", tint: .green, progress: 0.8, trailingText: "80%", duration: 60))
         render("closed-battery")
+        // Let the real Now Playing pipeline run briefly so `open-home` shows live data.
+        NowPlayingModel.shared.start()
+        RunLoop.main.run(until: Date().addingTimeInterval(3))
         state.isOpen = true
+        render("open-home-live")
+        NowPlayingModel.shared.stop()
         for tab in NookTab.allCases {
             state.selectedTab = tab
             render("open-\(tab.rawValue)")

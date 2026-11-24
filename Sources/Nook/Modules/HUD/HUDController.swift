@@ -16,8 +16,11 @@ private func hudEventTapCallback(
     }
     let controller = Unmanaged<HUDController>.fromOpaque(userInfo).takeUnretainedValue()
 
-    if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+    if type == .tapDisabledByTimeout {
         controller.reenableTapFromCallback()
+        return Unmanaged.passUnretained(event)
+    }
+    if type == .tapDisabledByUserInput {
         return Unmanaged.passUnretained(event)
     }
 
@@ -36,12 +39,19 @@ private func hudEventTapCallback(
     let keyCode = Int((data1 & 0xFFFF0000) >> 16)
     let keyState = (data1 & 0x0000FF00) >> 8
     let isKeyDown = (keyState == 0x0A)
+    let isRepeat = (data1 & 0x1) != 0
     let flags = nsEvent.modifierFlags
+    let hasUnexpectedModifiers = !flags.intersection([.command, .control]).isEmpty
+        || (flags.contains(.option) && !flags.contains(.shift))
+    if hasUnexpectedModifiers {
+        return Unmanaged.passUnretained(event)
+    }
     let isFineStep = flags.contains(.option) && flags.contains(.shift)
 
     return controller.handleMediaKeyEvent(
         keyCode: keyCode,
         isKeyDown: isKeyDown,
+        isRepeat: isRepeat,
         isFineStep: isFineStep,
         originalEvent: event
     )
@@ -62,18 +72,20 @@ final class HUDController: ObservableObject {
     }
 
     // Media key codes from IOKit/hidsystem/ev_keymap.h
-    private static let nxKeyTypeSoundUp = 0
-    private static let nxKeyTypeSoundDown = 1
-    private static let nxKeyTypeBrightnessUp = 2
-    private static let nxKeyTypeBrightnessDown = 3
-    private static let nxKeyTypeMute = 7
+    private nonisolated static let nxKeyTypeSoundUp = 0
+    private nonisolated static let nxKeyTypeSoundDown = 1
+    private nonisolated static let nxKeyTypeBrightnessUp = 2
+    private nonisolated static let nxKeyTypeBrightnessDown = 3
+    private nonisolated static let nxKeyTypeMute = 7
 
     // Virtual main volume property selector ('vmvc')
-    private static let virtualMainVolumeSelector: AudioObjectPropertySelector =
+    private nonisolated static let virtualMainVolumeSelector: AudioObjectPropertySelector =
         kAudioHardwareServiceDeviceProperty_VirtualMainVolume
 
     private nonisolated(unsafe) var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
+    private var activeObserver: NSObjectProtocol?
+    private var wantsRunning = false
 
     // DisplayServices function pointers
     private typealias DisplayServicesGetBrightnessFn = @convention(c) (
@@ -91,9 +103,25 @@ final class HUDController: ObservableObject {
     private nonisolated(unsafe) var dsSetBrightness: DisplayServicesSetBrightnessFn?
     private var didAttemptLoadDS = false
 
-    private init() {}
+    private init() {
+        activeObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                if (self.wantsRunning || UserDefaults.standard.bool(forKey: Pref.hud)),
+                   self.eventTap == nil,
+                   Self.isTrusted {
+                    self.start()
+                }
+            }
+        }
+    }
 
     func start() {
+        wantsRunning = true
         guard Self.isTrusted else {
             Self.requestTrust()
             return
@@ -115,7 +143,10 @@ final class HUDController: ObservableObject {
             return
         }
 
-        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
+            CFMachPortInvalidate(tap)
+            return
+        }
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
 
@@ -124,6 +155,7 @@ final class HUDController: ObservableObject {
     }
 
     func stop() {
+        wantsRunning = false
         if let tap = eventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
             CFMachPortInvalidate(tap)
@@ -136,7 +168,7 @@ final class HUDController: ObservableObject {
     }
 
     nonisolated fileprivate func reenableTapFromCallback() {
-        if let tap = eventTap {
+        if let tap = eventTap, CFMachPortIsValid(tap) {
             CGEvent.tapEnable(tap: tap, enable: true)
         }
     }
@@ -144,6 +176,7 @@ final class HUDController: ObservableObject {
     nonisolated fileprivate func handleMediaKeyEvent(
         keyCode: Int,
         isKeyDown: Bool,
+        isRepeat: Bool,
         isFineStep: Bool,
         originalEvent: CGEvent
     ) -> Unmanaged<CGEvent>? {
@@ -151,6 +184,9 @@ final class HUDController: ObservableObject {
 
         switch keyCode {
         case Self.nxKeyTypeSoundUp:
+            guard isVolumeControlAvailable() else {
+                return Unmanaged.passUnretained(originalEvent)
+            }
             if isKeyDown {
                 Task { @MainActor in
                     self.adjustVolume(delta: step)
@@ -159,6 +195,9 @@ final class HUDController: ObservableObject {
             return nil
 
         case Self.nxKeyTypeSoundDown:
+            guard isVolumeControlAvailable() else {
+                return Unmanaged.passUnretained(originalEvent)
+            }
             if isKeyDown {
                 Task { @MainActor in
                     self.adjustVolume(delta: -step)
@@ -167,7 +206,10 @@ final class HUDController: ObservableObject {
             return nil
 
         case Self.nxKeyTypeMute:
-            if isKeyDown {
+            guard isMuteControlAvailable() else {
+                return Unmanaged.passUnretained(originalEvent)
+            }
+            if isKeyDown && !isRepeat {
                 Task { @MainActor in
                     self.toggleMute()
                 }
@@ -253,7 +295,7 @@ final class HUDController: ObservableObject {
 
     // MARK: - CoreAudio Volume & Mute
 
-    private func defaultOutputDeviceID() -> AudioDeviceID? {
+    nonisolated private func defaultOutputDeviceID() -> AudioDeviceID? {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultOutputDevice,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -273,7 +315,84 @@ final class HUDController: ObservableObject {
         return deviceID
     }
 
-    private func getVolume(device: AudioDeviceID) -> Float? {
+    nonisolated private func isPropertySettable(
+        device: AudioDeviceID,
+        address: inout AudioObjectPropertyAddress
+    ) -> Bool {
+        guard AudioObjectHasProperty(device, &address) else { return false }
+        var settable: DarwinBoolean = false
+        guard AudioObjectIsPropertySettable(device, &address, &settable) == noErr else {
+            return false
+        }
+        return settable.boolValue
+    }
+
+    nonisolated private func canSetVolume(device: AudioDeviceID) -> Bool {
+        var virtualAddr = AudioObjectPropertyAddress(
+            mSelector: Self.virtualMainVolumeSelector,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        if isPropertySettable(device: device, address: &virtualAddr) {
+            return true
+        }
+
+        var scalarAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyVolumeScalar,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        if isPropertySettable(device: device, address: &scalarAddr) {
+            return true
+        }
+
+        for channel: UInt32 in [1, 2] {
+            var chAddr = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyVolumeScalar,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: channel
+            )
+            if isPropertySettable(device: device, address: &chAddr) {
+                return true
+            }
+        }
+        return false
+    }
+
+    nonisolated private func canSetMute(device: AudioDeviceID) -> Bool {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyMute,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        if isPropertySettable(device: device, address: &address) {
+            return true
+        }
+
+        for channel: UInt32 in [1, 2] {
+            var chAddr = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyMute,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: channel
+            )
+            if isPropertySettable(device: device, address: &chAddr) {
+                return true
+            }
+        }
+        return false
+    }
+
+    nonisolated private func isVolumeControlAvailable() -> Bool {
+        guard let device = defaultOutputDeviceID() else { return false }
+        return canSetVolume(device: device) && getVolume(device: device) != nil
+    }
+
+    nonisolated private func isMuteControlAvailable() -> Bool {
+        guard let device = defaultOutputDeviceID() else { return false }
+        return canSetMute(device: device)
+    }
+
+    nonisolated private func getVolume(device: AudioDeviceID) -> Float? {
         var volume: Float32 = 0
         var size = UInt32(MemoryLayout<Float32>.size)
 
@@ -282,9 +401,11 @@ final class HUDController: ObservableObject {
             mScope: kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
-        if AudioObjectHasProperty(device, &virtualAddr),
-           AudioObjectGetPropertyData(device, &virtualAddr, 0, nil, &size, &volume) == noErr {
-            return min(1.0, max(0.0, volume))
+        if AudioObjectHasProperty(device, &virtualAddr) {
+            size = UInt32(MemoryLayout<Float32>.size)
+            if AudioObjectGetPropertyData(device, &virtualAddr, 0, nil, &size, &volume) == noErr {
+                return min(1.0, max(0.0, volume))
+            }
         }
 
         var scalarAddr = AudioObjectPropertyAddress(
@@ -292,46 +413,11 @@ final class HUDController: ObservableObject {
             mScope: kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
-        if AudioObjectHasProperty(device, &scalarAddr),
-           AudioObjectGetPropertyData(device, &scalarAddr, 0, nil, &size, &volume) == noErr {
-            return min(1.0, max(0.0, volume))
-        }
-
-        var ch1Addr = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyVolumeScalar,
-            mScope: kAudioDevicePropertyScopeOutput,
-            mElement: 1
-        )
-        if AudioObjectHasProperty(device, &ch1Addr),
-           AudioObjectGetPropertyData(device, &ch1Addr, 0, nil, &size, &volume) == noErr {
-            return min(1.0, max(0.0, volume))
-        }
-
-        return nil
-    }
-
-    private func setVolume(device: AudioDeviceID, volume: Float) {
-        var clamped = Float32(min(1.0, max(0.0, volume)))
-        let size = UInt32(MemoryLayout<Float32>.size)
-
-        var virtualAddr = AudioObjectPropertyAddress(
-            mSelector: Self.virtualMainVolumeSelector,
-            mScope: kAudioDevicePropertyScopeOutput,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        if AudioObjectHasProperty(device, &virtualAddr),
-           AudioObjectSetPropertyData(device, &virtualAddr, 0, nil, size, &clamped) == noErr {
-            return
-        }
-
-        var scalarAddr = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyVolumeScalar,
-            mScope: kAudioDevicePropertyScopeOutput,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        if AudioObjectHasProperty(device, &scalarAddr),
-           AudioObjectSetPropertyData(device, &scalarAddr, 0, nil, size, &clamped) == noErr {
-            return
+        if AudioObjectHasProperty(device, &scalarAddr) {
+            size = UInt32(MemoryLayout<Float32>.size)
+            if AudioObjectGetPropertyData(device, &scalarAddr, 0, nil, &size, &volume) == noErr {
+                return min(1.0, max(0.0, volume))
+            }
         }
 
         for channel: UInt32 in [1, 2] {
@@ -341,9 +427,54 @@ final class HUDController: ObservableObject {
                 mElement: channel
             )
             if AudioObjectHasProperty(device, &chAddr) {
-                _ = AudioObjectSetPropertyData(device, &chAddr, 0, nil, size, &clamped)
+                size = UInt32(MemoryLayout<Float32>.size)
+                if AudioObjectGetPropertyData(device, &chAddr, 0, nil, &size, &volume) == noErr {
+                    return min(1.0, max(0.0, volume))
+                }
             }
         }
+
+        return nil
+    }
+
+    @discardableResult
+    private func setVolume(device: AudioDeviceID, volume: Float) -> Bool {
+        var clamped = Float32(min(1.0, max(0.0, volume)))
+        let size = UInt32(MemoryLayout<Float32>.size)
+
+        var virtualAddr = AudioObjectPropertyAddress(
+            mSelector: Self.virtualMainVolumeSelector,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        if isPropertySettable(device: device, address: &virtualAddr),
+           AudioObjectSetPropertyData(device, &virtualAddr, 0, nil, size, &clamped) == noErr {
+            return true
+        }
+
+        var scalarAddr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyVolumeScalar,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        if isPropertySettable(device: device, address: &scalarAddr),
+           AudioObjectSetPropertyData(device, &scalarAddr, 0, nil, size, &clamped) == noErr {
+            return true
+        }
+
+        var didSetChannel = false
+        for channel: UInt32 in [1, 2] {
+            var chAddr = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyVolumeScalar,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: channel
+            )
+            if isPropertySettable(device: device, address: &chAddr),
+               AudioObjectSetPropertyData(device, &chAddr, 0, nil, size, &clamped) == noErr {
+                didSetChannel = true
+            }
+        }
+        return didSetChannel
     }
 
     private func getMute(device: AudioDeviceID) -> Bool {
@@ -352,39 +483,74 @@ final class HUDController: ObservableObject {
             mScope: kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
-        guard AudioObjectHasProperty(device, &address) else { return false }
         var muted: UInt32 = 0
         var size = UInt32(MemoryLayout<UInt32>.size)
-        guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &muted) == noErr else {
-            return false
+        if AudioObjectHasProperty(device, &address) {
+            size = UInt32(MemoryLayout<UInt32>.size)
+            if AudioObjectGetPropertyData(device, &address, 0, nil, &size, &muted) == noErr {
+                return muted != 0
+            }
         }
-        return muted != 0
+
+        for channel: UInt32 in [1, 2] {
+            var chAddr = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyMute,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: channel
+            )
+            if AudioObjectHasProperty(device, &chAddr) {
+                size = UInt32(MemoryLayout<UInt32>.size)
+                if AudioObjectGetPropertyData(device, &chAddr, 0, nil, &size, &muted) == noErr {
+                    return muted != 0
+                }
+            }
+        }
+
+        return false
     }
 
-    private func setMute(device: AudioDeviceID, muted: Bool) {
+    @discardableResult
+    private func setMute(device: AudioDeviceID, muted: Bool) -> Bool {
+        var value: UInt32 = muted ? 1 : 0
+        let size = UInt32(MemoryLayout<UInt32>.size)
+
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyMute,
             mScope: kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
-        guard AudioObjectHasProperty(device, &address) else { return }
-        var value: UInt32 = muted ? 1 : 0
-        let size = UInt32(MemoryLayout<UInt32>.size)
-        _ = AudioObjectSetPropertyData(device, &address, 0, nil, size, &value)
+        if isPropertySettable(device: device, address: &address),
+           AudioObjectSetPropertyData(device, &address, 0, nil, size, &value) == noErr {
+            return true
+        }
+
+        var didSetChannel = false
+        for channel: UInt32 in [1, 2] {
+            var chAddr = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyMute,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: channel
+            )
+            if isPropertySettable(device: device, address: &chAddr),
+               AudioObjectSetPropertyData(device, &chAddr, 0, nil, size, &value) == noErr {
+                didSetChannel = true
+            }
+        }
+        return didSetChannel
     }
 
     private func adjustVolume(delta: Float) {
-        guard let device = defaultOutputDeviceID() else { return }
+        guard let device = defaultOutputDeviceID(),
+              let current = getVolume(device: device) else { return }
         let wasMuted = getMute(device: device)
-        let current = getVolume(device: device) ?? 0.5
 
         if delta > 0 && wasMuted {
             setMute(device: device, muted: false)
         }
 
-        let baseVolume = (wasMuted && delta > 0) ? current : current
+        let baseVolume: Float = (wasMuted && current <= 0.001) ? 0.0 : current
         let target = min(1.0, max(0.0, baseVolume + delta))
-        setVolume(device: device, volume: target)
+        guard setVolume(device: device, volume: target) else { return }
 
         if target <= 0.0001 {
             setMute(device: device, muted: true)
@@ -400,8 +566,14 @@ final class HUDController: ObservableObject {
     private func toggleMute() {
         guard let device = defaultOutputDeviceID() else { return }
         let newMuted = !getMute(device: device)
-        setMute(device: device, muted: newMuted)
-        let volume = Double(getVolume(device: device) ?? 0)
+        guard setMute(device: device, muted: newMuted) else { return }
+        var volume = Double(getVolume(device: device) ?? 0)
+        if !newMuted && volume <= 0.001 {
+            let minStep: Float = 1.0 / 16.0
+            if setVolume(device: device, volume: minStep) {
+                volume = Double(minStep)
+            }
+        }
         showVolumeHUD(level: newMuted ? 0 : volume, muted: newMuted)
     }
 

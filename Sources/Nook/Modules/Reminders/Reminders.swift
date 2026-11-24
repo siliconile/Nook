@@ -6,6 +6,7 @@ struct ReminderItem: Identifiable, Equatable {
     let id: String
     var title: String
     var dueDate: Date?
+    var hasDueTime: Bool = true
     var isOverdue: Bool
     var color: Color
     var listTitle: String
@@ -34,6 +35,9 @@ final class RemindersModel: ObservableObject {
     private var storeObserver: NSObjectProtocol?
     private var completionTasks: [String: Task<Void, Never>] = [:]
     private var isRequestingAccess = false
+    private var activeFetchRequest: Any?
+    private var refreshGeneration: UInt64 = 0
+    private var needsRefreshAfterCompletion = false
 
     private init() {}
 
@@ -60,6 +64,13 @@ final class RemindersModel: ObservableObject {
     }
 
     func refresh() {
+        refreshGeneration &+= 1
+        let generation = refreshGeneration
+        if let activeFetchRequest {
+            store.cancelFetchRequest(activeFetchRequest)
+            self.activeFetchRequest = nil
+        }
+
         authorizationStatus = EKEventStore.authorizationStatus(for: .reminder)
         guard isAuthorized else {
             reminders = []
@@ -82,20 +93,29 @@ final class RemindersModel: ObservableObject {
             calendars: calendars.isEmpty ? nil : calendars
         )
 
-        store.fetchReminders(matching: predicate) { [weak self] fetched in
+        activeFetchRequest = store.fetchReminders(matching: predicate) { [weak self] fetched in
             let now = Date()
+            let calendar = Calendar.current
+            let startOfToday = calendar.startOfDay(for: now)
             let rawItems: [(item: ReminderItem, creationDate: Date?)] = (fetched ?? []).compactMap { rem in
                 guard !rem.isCompleted else { return nil }
                 let id = rem.calendarItemIdentifier
                 let title = (rem.title?.isEmpty == false) ? rem.title! : "Untitled"
-                let dueDate = rem.dueDateComponents.flatMap { Calendar.current.date(from: $0) }
-                let isOverdue = dueDate.map { $0 < now } ?? false
+                let hasTime = rem.dueDateComponents?.hour != nil
+                let dueDate = rem.dueDateComponents.flatMap { calendar.date(from: $0) }
+                let isOverdue: Bool
+                if let dueDate {
+                    isOverdue = hasTime ? (dueDate < now) : (calendar.startOfDay(for: dueDate) < startOfToday)
+                } else {
+                    isOverdue = false
+                }
                 let color = Self.color(from: rem.calendar?.cgColor)
                 let listTitle = rem.calendar?.title ?? ""
                 let item = ReminderItem(
                     id: id,
                     title: title,
                     dueDate: dueDate,
+                    hasDueTime: hasTime,
                     isOverdue: isOverdue,
                     color: color,
                     listTitle: listTitle
@@ -121,7 +141,8 @@ final class RemindersModel: ObservableObject {
             }.map(\.item)
 
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, self.refreshGeneration == generation else { return }
+                self.activeFetchRequest = nil
                 withAnimation(.easeInOut(duration: 0.2)) {
                     self.reminders = sorted
                 }
@@ -134,6 +155,10 @@ final class RemindersModel: ObservableObject {
             existingTask.cancel()
             completionTasks.removeValue(forKey: id)
             completingIDs.remove(id)
+            if completionTasks.isEmpty && needsRefreshAfterCompletion {
+                needsRefreshAfterCompletion = false
+                refresh()
+            }
             return
         }
 
@@ -146,15 +171,28 @@ final class RemindersModel: ObservableObject {
             guard !Task.isCancelled, let self else { return }
             self.completionTasks.removeValue(forKey: id)
 
+            var didSave = false
             if let item = self.store.calendarItem(withIdentifier: id) as? EKReminder {
                 item.isCompleted = true
                 item.completionDate = Date()
-                try? self.store.save(item, commit: true)
+                do {
+                    try self.store.save(item, commit: true)
+                    didSave = true
+                } catch {
+                    didSave = false
+                }
             }
 
             withAnimation(.easeInOut(duration: 0.25)) {
-                self.reminders.removeAll { $0.id == id }
+                if didSave {
+                    self.reminders.removeAll { $0.id == id }
+                }
                 self.completingIDs.remove(id)
+            }
+
+            if self.completionTasks.isEmpty && self.needsRefreshAfterCompletion {
+                self.needsRefreshAfterCompletion = false
+                self.refresh()
             }
         }
         completionTasks[id] = task
@@ -195,7 +233,11 @@ final class RemindersModel: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                guard let self, self.completionTasks.isEmpty else { return }
+                guard let self else { return }
+                guard self.completionTasks.isEmpty else {
+                    self.needsRefreshAfterCompletion = true
+                    return
+                }
                 self.refresh()
             }
         }
@@ -310,7 +352,7 @@ struct RemindersView: View {
             Spacer(minLength: 6)
 
             if let due = item.dueDate {
-                Text(Self.formatRelativeDate(due))
+                Text(Self.formatRelativeDate(due, hasTime: item.hasDueTime))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(item.isOverdue ? Color.red : Color.white.opacity(0.5))
                     .lineLimit(1)
@@ -368,9 +410,10 @@ struct RemindersView: View {
         newReminderTitle = ""
     }
 
-    private static func formatRelativeDate(_ date: Date) -> String {
+    private static func formatRelativeDate(_ date: Date, hasTime: Bool = true) -> String {
         let calendar = Calendar.current
         if calendar.isDateInToday(date) {
+            guard hasTime else { return "Today" }
             let formatter = DateFormatter()
             formatter.timeStyle = .short
             formatter.dateStyle = .none

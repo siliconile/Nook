@@ -12,27 +12,32 @@ struct NotchRootView: View {
         let size = state.contentSize
         VStack(spacing: 0) {
             ZStack(alignment: .top) {
-                NotchShape(topRadius: state.isOpen ? 10 : 6, bottomRadius: state.isOpen ? 28 : 12)
+                shape
                     .fill(Color.black)
                     .shadow(color: .black.opacity(state.isOpen ? 0.45 : 0), radius: 12, y: 4)
 
+                Group {
                 if state.isOpen {
                     ExpandedView()
-                        .padding(.horizontal, 26)
-                        .padding(.top, state.notchSize.height + 4)
-                        .padding(.bottom, 14)
-                        .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
+                        .padding(.horizontal, 24)
+                        .padding(.top, state.notchSize.height + 2)
+                        .padding(.bottom, 12)
+                        .frame(width: NookState.openSize.width, height: NookState.openSize.height)
+                        .transition(.identity) // no fade: the growing shape reveals it
                 } else {
                     closedContent
                         .frame(height: state.notchSize.height)
-                        .padding(.horizontal, 14)
-                        .transition(.opacity)
+                        .padding(.horizontal, state.closedSideWidth == NookState.compactSideWidth ? 8 : 14)
+                        .transition(.identity)
                 }
+                }
+                .clipShape(shape) // keep content inside the silhouette while it animates
             }
             .frame(width: size.width, height: size.height)
             .scaleEffect(state.isHovering && !state.isOpen ? 1.06 : 1, anchor: .top)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: state.isHovering)
             .onDrop(of: [UTType.fileURL], isTargeted: $state.isDropTargeted) { providers in
+                guard UserDefaults.standard.bool(forKey: Pref.shelf) else { return false }
                 ShelfStore.shared.add(providers: providers)
                 state.open(tab: .shelf)
                 return true
@@ -41,6 +46,10 @@ struct NotchRootView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .preferredColorScheme(.dark)
+    }
+
+    private var shape: NotchShape {
+        NotchShape(topRadius: state.isOpen ? 10 : 6, bottomRadius: state.isOpen ? 28 : 12)
     }
 
     /// Leading/trailing content beside the hardware notch while closed.
@@ -53,7 +62,20 @@ struct NotchRootView: View {
                     .frame(width: NookState.sideWidth - 14, alignment: .leading)
                 Spacer(minLength: state.notchSize.width)
                 Group {
-                    if let progress = a.progress {
+                    if let progress = a.progress, let text = a.trailingText {
+                        // e.g. battery: short bar + percentage
+                        HStack(spacing: 5) {
+                            Capsule().fill(.white.opacity(0.2))
+                                .overlay(alignment: .leading) {
+                                    GeometryReader { g in
+                                        Capsule().fill(a.tint).frame(width: g.size.width * max(0, min(1, progress)))
+                                    }
+                                }
+                                .frame(height: 5)
+                            Text(text).font(.system(size: 10, weight: .semibold).monospacedDigit())
+                                .lineLimit(1).fixedSize()
+                        }
+                    } else if let progress = a.progress {
                         Capsule().fill(.white.opacity(0.2))
                             .overlay(alignment: .leading) {
                                 GeometryReader { g in
@@ -62,7 +84,7 @@ struct NotchRootView: View {
                             }
                             .frame(height: 5)
                     } else if let text = a.trailingText ?? a.title {
-                        Text(text).font(.system(size: 11, weight: .semibold)).lineLimit(1)
+                        Text(text).font(.system(size: 11, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
                     }
                 }
                 .frame(width: NookState.sideWidth - 20, alignment: .trailing)
@@ -78,10 +100,10 @@ struct NotchRootView: View {
                     .frame(width: NookState.sideWidth - 20, alignment: .trailing)
             } else if nowPlayingEnabled && nowPlaying.isPlaying {
                 NowPlayingCompactLeading()
-                    .frame(width: NookState.sideWidth - 14, alignment: .leading)
+                    .frame(width: NookState.compactSideWidth - 8, alignment: .leading)
                 Spacer(minLength: state.notchSize.width)
                 NowPlayingCompactTrailing()
-                    .frame(width: NookState.sideWidth - 20, alignment: .trailing)
+                    .frame(width: NookState.compactSideWidth - 8, alignment: .trailing)
             }
         }
         .foregroundStyle(.white)
@@ -103,6 +125,7 @@ struct ExpandedView: View {
                             .background(state.selectedTab == tab ? Color.white.opacity(0.16) : .clear,
                                         in: RoundedRectangle(cornerRadius: 7))
                             .foregroundStyle(state.selectedTab == tab ? .white : .white.opacity(0.55))
+                            .contentShape(Rectangle()) // whole tab is clickable, not just the glyph
                     }
                     .buttonStyle(.plain)
                     .help(tab.title)

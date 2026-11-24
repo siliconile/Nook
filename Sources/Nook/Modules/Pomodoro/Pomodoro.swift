@@ -41,6 +41,22 @@ final class PomodoroModel: ObservableObject {
     /// keeps the countdown accurate even if timers get delayed or the app sleeps briefly.
     private var endDate: Date?
     private var ticker: AnyCancellable?
+    private var defaultsObserver: AnyCancellable?
+    private var isIdle = true
+
+    init() {
+        remaining = duration(for: .focus)
+        defaultsObserver = NotificationCenter.default
+            .publisher(for: UserDefaults.didChangeNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self, !self.isRunning, self.isIdle else { return }
+                let updated = self.duration(for: self.phase)
+                if self.remaining != updated {
+                    self.remaining = updated
+                }
+            }
+    }
 
     /// Elapsed fraction of the current phase, 0...1.
     var progress: Double {
@@ -67,6 +83,7 @@ final class PomodoroModel: ObservableObject {
     func start() {
         guard !isRunning else { return }
         if remaining <= 0 { remaining = duration(for: phase) }
+        isIdle = false
         endDate = Date().addingTimeInterval(remaining)
         isRunning = true
         startTicker()
@@ -82,6 +99,7 @@ final class PomodoroModel: ObservableObject {
 
     func reset() {
         endDate = nil
+        isIdle = true
         remaining = duration(for: phase)
         stopTicker()
         isRunning = false
@@ -95,8 +113,12 @@ final class PomodoroModel: ObservableObject {
     /// Picker: switch phase and reset its duration.
     func select(_ newPhase: PomodoroPhase) {
         guard newPhase != phase else { return }
+        if phase == .longBreak || (newPhase == .focus && completedFocusSessions >= sessionsBeforeLong) {
+            completedFocusSessions = 0
+        }
         phase = newPhase
         endDate = nil
+        isIdle = true
         remaining = duration(for: phase)
         stopTicker()
         isRunning = false
@@ -138,11 +160,12 @@ final class PomodoroModel: ObservableObject {
         isRunning = false
         remaining = 0
 
-        if phase == .focus {
+        if phase == .focus && !quiet {
             completedFocusSessions += 1
         }
         advancePhase()
 
+        isIdle = true
         remaining = duration(for: phase)
 
         if !quiet {
@@ -198,6 +221,9 @@ struct PomodoroView: View {
             VStack(spacing: 2) {
                 Text(model.remainingText)
                     .font(.system(size: 30, weight: .semibold).monospacedDigit())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .padding(.horizontal, 12)
                 Text(model.phase.title)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.white.opacity(0.55))

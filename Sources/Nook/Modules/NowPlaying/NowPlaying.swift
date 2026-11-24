@@ -255,8 +255,9 @@ final class NowPlayingModel: ObservableObject {
         let newDuration = max(0, (info["kMRMediaRemoteNowPlayingInfoDuration"] as? NSNumber)?.doubleValue ?? 0)
         let rawElapsed = max(0, (info["kMRMediaRemoteNowPlayingInfoElapsedTime"] as? NSNumber)?.doubleValue ?? 0)
         let rateNumber = (info["kMRMediaRemoteNowPlayingInfoPlaybackRate"] as? NSNumber)?.doubleValue
-        let effectiveRate = rateNumber ?? (isPlayingFlag ? 1.0 : 0.0)
-        let playing = isPlayingFlag || (rateNumber ?? 0) > 0.01
+        // Players often leave PlaybackRate at 1 while paused; the isPlaying flag is authoritative.
+        let playing = isPlayingFlag
+        let effectiveRate = playing ? (rateNumber ?? 1.0) : 0.0
 
         let computedElapsed: TimeInterval
         if let timestamp = info["kMRMediaRemoteNowPlayingInfoTimestamp"] as? Date {

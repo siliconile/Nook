@@ -50,7 +50,17 @@ struct SettingsView: View {
                     HStack {
                         Text("Needs Accessibility permission.").foregroundStyle(.secondary)
                         Spacer()
-                        Button("Grant…") { HUDController.requestTrust(); hudTrusted = HUDController.isTrusted }
+                        Button("Grant…") {
+                            HUDController.requestTrust()
+                            hudTrusted = HUDController.isTrusted
+                            AppDelegate.shared?.startModules()
+                        }
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                        hudTrusted = HUDController.isTrusted
+                        if hudTrusted {
+                            AppDelegate.shared?.startModules()
+                        }
                     }
                 }
             } header: { Text("System HUD") }

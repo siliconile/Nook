@@ -55,11 +55,17 @@ final class ShelfStore: ObservableObject {
                     url = URL(dataRepresentation: data, relativeTo: nil)
                 } else if let direct = data as? URL {
                     url = direct
-                } else if let path = data as? String {
-                    url = URL(fileURLWithPath: path)
+                } else if let str = data as? String {
+                    let trimmed = str.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if trimmed.hasPrefix("file:"), let parsed = URL(string: trimmed) {
+                        url = parsed
+                    } else {
+                        url = URL(fileURLWithPath: trimmed)
+                    }
                 }
-                if let url {
-                    lock.lock(); urls.append(url); lock.unlock()
+                if let rawURL = url {
+                    let normalized = (rawURL as NSURL).filePathURL?.standardizedFileURL ?? rawURL.standardizedFileURL
+                    lock.lock(); urls.append(normalized); lock.unlock()
                 }
                 group.leave()
             }
@@ -99,9 +105,13 @@ final class ShelfStore: ObservableObject {
     // MARK: - Internals
 
     private func insert(urls: [URL]) {
-        let existing = Set(items.map { $0.url.path })
+        var existing = Set(items.map { $0.url.standardizedFileURL.path })
         var addedCount = 0
-        for url in urls where !existing.contains(url.path) {
+        for rawURL in urls {
+            let url = (rawURL as NSURL).filePathURL?.standardizedFileURL ?? rawURL.standardizedFileURL
+            let path = url.path
+            guard !path.isEmpty, !existing.contains(path) else { continue }
+            existing.insert(path)
             items.append(ShelfItem(url: url))
             addedCount += 1
         }
@@ -149,10 +159,6 @@ struct ShelfView: View {
             .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
             .foregroundStyle(state.isDropTargeted ? Color.blue : Color.white.opacity(0.18)))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onDrop(of: [UTType.fileURL], isTargeted: $state.isDropTargeted) { providers in
-            store.add(providers: providers)
-            return true
-        }
     }
 
     @ViewBuilder
@@ -207,8 +213,9 @@ private struct ShelfTile: View {
                 .multilineTextAlignment(.center)
                 .truncationMode(.middle)
         }
+        .padding(.horizontal, 4)
         .padding(.vertical, 8)
-        .frame(width: 80, height: 74)
+        .frame(width: 84, height: 88)
         .background(hovered ? Color.white.opacity(0.12) : Color.white.opacity(0.07),
                     in: RoundedRectangle(cornerRadius: 10))
         .overlay(alignment: .topTrailing) {
@@ -224,7 +231,7 @@ private struct ShelfTile: View {
             }
         }
         .onTapGesture(count: 2) { ShelfStore.shared.open(id: item.id) }
-        .onDrag { NSItemProvider(contentsOf: item.url) ?? NSItemProvider() }
+        .onDrag { NSItemProvider(object: item.url as NSURL) }
         .contextMenu {
             Button("Open") { ShelfStore.shared.open(id: item.id) }
             Button("Show in Finder") { ShelfStore.shared.revealInFinder(id: item.id) }

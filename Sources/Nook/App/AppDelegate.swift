@@ -35,7 +35,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         HUDController.shared.stop()
+        NowPlayingModel.shared.stop()
         NotesStore.shared.flush()
+        TasksStore.shared.flush()
         notch.stop()
     }
 

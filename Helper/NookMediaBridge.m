@@ -1,7 +1,7 @@
 // NookMediaBridge: tiny dylib loaded by /usr/bin/perl (an Apple platform binary that
 // macOS still allows to read MediaRemote) to stream Now Playing info as JSON lines.
-//   stream : prints one JSON object per change to stdout, runs forever.
-//   send   : sends the MediaRemote command number in env NOOK_MR_COMMAND, then returns.
+//   nook_stream : prints one JSON object per change to stdout, runs forever.
+//   nook_send   : sends the MediaRemote command number in env NOOK_MR_COMMAND, then returns.
 #import <Foundation/Foundation.h>
 #import <dlfcn.h>
 
@@ -83,7 +83,7 @@ static void emit(void) {
     });
 }
 
-__attribute__((visibility("default"))) void stream(void *a, void *b) {
+__attribute__((visibility("default"))) void nook_stream(void *a, void *b) {
     if (!loadMR()) { fprintf(stderr, "MediaRemote unavailable\n"); return; }
     RegisterFn reg = (RegisterFn)dlsym(mr, "MRMediaRemoteRegisterForNowPlayingNotifications");
     if (reg) reg(dispatch_get_main_queue());
@@ -99,7 +99,7 @@ __attribute__((visibility("default"))) void stream(void *a, void *b) {
     CFRunLoopRun();
 }
 
-__attribute__((visibility("default"))) void send(void *a, void *b) {
+__attribute__((visibility("default"))) void nook_send(void *a, void *b) {
     if (!loadMR()) return;
     SendFn sendCmd = (SendFn)dlsym(mr, "MRMediaRemoteSendCommand");
     const char *c = getenv("NOOK_MR_COMMAND");

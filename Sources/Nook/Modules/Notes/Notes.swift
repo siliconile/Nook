@@ -52,7 +52,6 @@ struct NotesView: View {
                     .scrollContentBackground(.hidden)
                     .font(.system(size: 13))
                     .foregroundStyle(.white)
-                    .opacity(store.text.isEmpty ? 0 : 1)
                 if store.text.isEmpty {
                     Text("Start typing…")
                         .font(.system(size: 13))

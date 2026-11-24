@@ -19,8 +19,9 @@ final class NotchPanel: NSPanel {
         ignoresMouseEvents = true
     }
 
-    // Needed so text fields (Tasks, Notes) can receive typing.
-    override var canBecomeKey: Bool { true }
+    // Key only while open, so text fields (Tasks, Notes) can receive typing but a
+    // closed notch never traps keystrokes meant for other apps.
+    override var canBecomeKey: Bool { MainActor.assumeIsolated { NookState.shared.isOpen } }
     override var canBecomeMain: Bool { false }
 }
 
@@ -34,6 +35,12 @@ final class NotchWindowController {
     private var hoverTask: Task<Void, Never>?
     private var bag = Set<AnyCancellable>()
     private var hiddenForFullscreen = false
+    /// Screen the panel is pinned to (resolved in `reposition`).
+    private var screen: NSScreen?
+    /// Pointer has been inside the open notch since it opened. Until then (e.g. opened
+    /// from the menu bar item) moving elsewhere does not close it; a click outside does.
+    private var pointerEnteredSinceOpen = false
+    private var menuTracking = false
 
     /// Panel is bigger than the open notch so shadows/animations are not clipped.
     private let panelSize = CGSize(width: NookState.openSize.width + 80, height: NookState.openSize.height + 40)
@@ -55,6 +62,12 @@ final class NotchWindowController {
             .sink { [weak self] open in self?.openChanged(open) }
             .store(in: &bag)
 
+        // Don't auto-close underneath an open context menu.
+        NotificationCenter.default.publisher(for: NSMenu.didBeginTrackingNotification)
+            .sink { [weak self] _ in self?.menuTracking = true }.store(in: &bag)
+        NotificationCenter.default.publisher(for: NSMenu.didEndTrackingNotification)
+            .sink { [weak self] _ in self?.menuTracking = false }.store(in: &bag)
+
         // Hide while a fullscreen app owns the notch screen.
         let ws = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.activeSpaceDidChangeNotification, NSWorkspace.didActivateApplicationNotification] {
@@ -74,13 +87,13 @@ final class NotchWindowController {
         }) { monitors.append(l) }
     }
 
-    /// Screen with a hardware notch if any, otherwise the main screen.
-    private var targetScreen: NSScreen? {
-        NSScreen.screens.first { $0.safeAreaInsets.top > 0 } ?? NSScreen.main
-    }
+    /// Screen with a hardware notch if any, otherwise the primary screen. Deterministic
+    /// (not `NSScreen.main`, which follows keyboard focus).
+    private var targetScreen: NSScreen? { screen }
 
     private func reposition() {
-        guard let screen = targetScreen else { return }
+        screen = NSScreen.screens.first { $0.safeAreaInsets.top > 0 } ?? NSScreen.screens.first
+        guard let screen else { return }
         let f = screen.frame
         if screen.safeAreaInsets.top > 0,
            let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea {
@@ -110,13 +123,27 @@ final class NotchWindowController {
         let p = NSEvent.mouseLocation
         let inside = activeRect(padding: state.isOpen ? 12 : 6).contains(p)
 
-        // File drag towards the notch -> open the shelf so it can receive the drop.
-        if event.type == .leftMouseDragged, !state.isOpen, inside,
-           UserDefaults.standard.bool(forKey: Pref.shelf), dragHasFiles() {
-            state.open(tab: .shelf)
+        switch event.type {
+        case .leftMouseDragged:
+            // File drag towards the notch -> open the shelf so it can receive the drop.
+            if !state.isOpen, inside, UserDefaults.standard.bool(forKey: Pref.shelf), dragHasFiles() {
+                state.open(tab: .shelf)
+            }
             return
+        case .leftMouseUp:
+            // A drag released outside (or cancelled) must not leave the notch stuck open.
+            if state.isOpen, !inside, !state.isDropTargeted, !menuTracking { state.close() }
+            return
+        case .leftMouseDown:
+            if state.isOpen {
+                if !inside, !menuTracking { state.close() }
+            } else if inside, openMode == .click {
+                state.open()
+            }
+            return
+        default:
+            break
         }
-        if event.type == .leftMouseDragged || event.type == .leftMouseUp { return }
 
         if inside != state.isHovering {
             state.isHovering = inside
@@ -126,13 +153,8 @@ final class NotchWindowController {
         }
 
         if inside {
-            panel.ignoresMouseEvents = false
-            guard !state.isOpen else { return }
-            let clickMode = UserDefaults.standard.string(forKey: Pref.openMode) == OpenMode.click.rawValue
-            if clickMode {
-                if event.type == .leftMouseDown { state.open() }
-                return
-            }
+            if state.isOpen { pointerEnteredSinceOpen = true; return }
+            guard openMode == .hover else { return }
             let delay = UserDefaults.standard.double(forKey: Pref.hoverDelay)
             if delay <= 0 { state.open(); return }
             guard hoverTask == nil else { return }
@@ -144,9 +166,12 @@ final class NotchWindowController {
             }
         } else {
             hoverTask?.cancel(); hoverTask = nil
-            if state.isOpen, !state.isDropTargeted { state.close() }
-            if !state.isOpen { panel.ignoresMouseEvents = true }
+            if state.isOpen, pointerEnteredSinceOpen, !state.isDropTargeted, !menuTracking { state.close() }
         }
+    }
+
+    private var openMode: OpenMode {
+        OpenMode(rawValue: UserDefaults.standard.string(forKey: Pref.openMode) ?? "") ?? .hover
     }
 
     /// True when the menu bar is not on screen for the notch display, i.e. a fullscreen
@@ -177,7 +202,6 @@ final class NotchWindowController {
         hiddenForFullscreen = hide
         if hide { state.close() }
         panel.animator().alphaValue = hide ? 0 : 1
-        if hide { panel.ignoresMouseEvents = true }
     }
 
     private func dragHasFiles() -> Bool {
@@ -185,12 +209,22 @@ final class NotchWindowController {
         return pb.canReadObject(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true])
     }
 
+    /// The only place that toggles mouse handling, so a closed notch never steals clicks.
     private func openChanged(_ open: Bool) {
         panel.ignoresMouseEvents = !open
         if open {
-            panel.makeKey()
+            // Opened by hover counts as "entered"; opened from the menu does not.
+            pointerEnteredSinceOpen = activeRect(padding: 12).contains(NSEvent.mouseLocation)
+            // $isOpen fires before the value changes and canBecomeKey reads it: defer.
+            DispatchQueue.main.async { [weak self] in self?.panel.makeKey() }
         } else {
-            panel.resignKey()
+            pointerEnteredSinceOpen = false
+            panel.makeFirstResponder(nil)
+            if panel.isKeyWindow {
+                // Give key status back: re-ordering a now non-key-capable panel drops it.
+                panel.orderOut(nil)
+                panel.orderFrontRegardless()
+            }
         }
     }
 

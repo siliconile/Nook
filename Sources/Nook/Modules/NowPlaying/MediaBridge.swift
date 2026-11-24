@@ -61,7 +61,7 @@ final class MediaBridge {
         guard let dylib = dylibPath else { return }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: perlPath)
-        p.arguments = ["-e", script(symbol: "send"), dylib]
+        p.arguments = ["-e", script(symbol: "nook_send"), dylib]
         var env = ProcessInfo.processInfo.environment
         env["NOOK_MR_COMMAND"] = String(command)
         p.environment = env
@@ -84,7 +84,7 @@ final class MediaBridge {
         guard wantRunning, process == nil, let dylib = Self.dylibPath else { return }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: Self.perlPath)
-        p.arguments = ["-e", Self.script(symbol: "stream"), dylib]
+        p.arguments = ["-e", Self.script(symbol: "nook_stream"), dylib]
         let out = Pipe()
         p.standardOutput = out
         p.standardError = FileHandle.nullDevice

@@ -82,8 +82,16 @@ final class TasksStore: ObservableObject {
         saveTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(300))
             guard !Task.isCancelled else { return }
+            self?.saveTask = nil
             self?.save()
         }
+    }
+
+    func flush() {
+        guard saveTask != nil else { return }
+        saveTask?.cancel()
+        saveTask = nil
+        save()
     }
 
     private func save() {

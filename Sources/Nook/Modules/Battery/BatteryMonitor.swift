@@ -33,14 +33,15 @@ final class BatteryMonitor: ObservableObject {
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
         if let source = IOPSNotificationCreateRunLoopSource(batteryPowerSourceCallback, selfPtr)?
             .takeRetainedValue() {
-            CFRunLoopAddSource(CFRunLoopGetMain(), source, .defaultMode)
+            CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
             runLoopSource = source
         }
     }
 
     func stop() {
         if let source = runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .defaultMode)
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+            CFRunLoopSourceInvalidate(source)
             runLoopSource = nil
         }
     }
@@ -61,6 +62,9 @@ final class BatteryMonitor: ObservableObject {
         for source in sources {
             guard let desc = IOPSGetPowerSourceDescription(snapshot, source)?
                 .takeUnretainedValue() as? [String: Any] else {
+                continue
+            }
+            guard (desc[kIOPSTypeKey as String] as? String) == (kIOPSInternalBatteryType as String) else {
                 continue
             }
             guard let currentCap = desc[kIOPSCurrentCapacityKey as String] as? Int,
