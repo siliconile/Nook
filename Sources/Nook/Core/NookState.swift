@@ -7,12 +7,12 @@ enum NookTab: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .home: "Now Playing"
-        case .tasks: "Tasks"
-        case .notes: "Notes"
-        case .reminders: "Reminders"
-        case .pomodoro: "Focus"
-        case .shelf: "Shelf"
+        case .home: String(localized: "Now Playing")
+        case .tasks: String(localized: "Tasks")
+        case .notes: String(localized: "Notes")
+        case .reminders: String(localized: "Reminders")
+        case .pomodoro: String(localized: "Focus")
+        case .shelf: String(localized: "Shelf")
         }
     }
 

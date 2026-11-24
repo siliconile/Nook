@@ -16,6 +16,10 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/siliconile/Nook" alt="MIT license"></a>
 </p>
 
+<p align="center">
+  <img src="docs/demo.gif" width="720" alt="Nook demo: the notch opens to Now Playing, then shows the volume HUD and a focus timer">
+</p>
+
 ---
 
 ## Features
@@ -53,6 +57,12 @@ clickable `- [ ]` checkboxes. Saved as you type to `notes.md`.
 
 **Shelf** — drag files onto the notch to park them; drag them back out to any app,
 double-click to open, right-click to reveal in Finder.
+
+**Updates** — Nook checks GitHub Releases once a day (can be turned off) and offers the
+download when a new version is out; **Check for Updates…** is in the menu-bar menu.
+
+**Languages** — English and Arabic (العربية). Nook follows your system language; to pick a
+language just for Nook, use **System Settings → General → Language & Region → Applications**.
 
 **Settings** — launch at login, hover vs. click to open, hover delay, default tab when
 nothing is playing, per-module toggles, timer lengths, low-battery threshold.
@@ -120,6 +130,9 @@ so permissions survive rebuilds. If a permission ever looks "on" but doesn't wor
   that is loaded by the system's `/usr/bin/perl` (an Apple platform binary) and streams
   now-playing changes as JSON lines; commands are sent the same way. If that isn't
   available, Nook falls back to AppleScript for Spotify and Music.
+  **Settings → Now Playing** shows which source is active. Apple has deprecated bundled
+  scripting runtimes; if a future macOS drops `/usr/bin/perl`, the fallback keeps Music and
+  Spotify working while a replacement bridge is built.
 - **HUD** — a `CGEventTap` on media keys; volume via CoreAudio, brightness via DisplayServices.
 - **Battery** — IOKit power-source notifications.
 
@@ -140,6 +153,8 @@ Tools/        make-icon.swift (regenerates the app icon)
 
 - `.build/debug/Nook --snapshot <dir>` renders every notch state to PNG files — handy for
   checking layouts without Screen Recording permission.
+- `.build/debug/Nook --demo-gif docs/demo.gif` re-renders the README demo from the real
+  views with sample data.
 - Design tokens (sizes, spacing, animation timing, blur) live in `Sources/Nook/UI/Theme.swift`.
 - `swift Tools/make-icon.swift` regenerates `docs/icon.png` and `Resources/AppIcon.icns`.
 

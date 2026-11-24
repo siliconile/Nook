@@ -77,7 +77,7 @@ struct NotesView: View {
                 Text("\(store.wordCount) words")
                 Spacer()
                 IconButton(symbol: copied ? "checkmark" : "doc.on.doc", size: 11, frame: 20,
-                           tint: copied ? .green : Theme.tertiaryText, help: copied ? "Copied" : "Copy as Markdown") {
+                           tint: copied ? .green : Theme.tertiaryText, help: copied ? String(localized: "Copied") : String(localized: "Copy as Markdown")) {
                     copyAll()
                 }
                 .disabled(store.text.isEmpty)

@@ -100,7 +100,7 @@ final class RemindersModel: ObservableObject {
             let rawItems: [(item: ReminderItem, creationDate: Date?)] = (fetched ?? []).compactMap { rem in
                 guard !rem.isCompleted else { return nil }
                 let id = rem.calendarItemIdentifier
-                let title = (rem.title?.isEmpty == false) ? rem.title! : "Untitled"
+                let title = (rem.title?.isEmpty == false) ? rem.title! : String(localized: "Untitled")
                 let hasTime = rem.dueDateComponents?.hour != nil
                 let dueDate = rem.dueDateComponents.flatMap { calendar.date(from: $0) }
                 let isOverdue: Bool
@@ -435,15 +435,15 @@ struct RemindersView: View {
     private static func formatRelativeDate(_ date: Date, hasTime: Bool = true) -> String {
         let calendar = Calendar.current
         if calendar.isDateInToday(date) {
-            guard hasTime else { return "Today" }
+            guard hasTime else { return String(localized: "Today") }
             let formatter = DateFormatter()
             formatter.timeStyle = .short
             formatter.dateStyle = .none
-            return "Today, \(formatter.string(from: date))"
+            return String(localized: "Today, \(formatter.string(from: date))")
         } else if calendar.isDateInTomorrow(date) {
-            return "Tomorrow"
+            return String(localized: "Tomorrow")
         } else if calendar.isDateInYesterday(date) {
-            return "Yesterday"
+            return String(localized: "Yesterday")
         } else {
             let formatter = RelativeDateTimeFormatter()
             formatter.unitsStyle = .short

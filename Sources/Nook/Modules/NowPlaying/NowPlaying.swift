@@ -655,7 +655,7 @@ struct NowPlayingView: View {
                             .font(Theme.title)
                             .foregroundStyle(Theme.primary)
                             .lineLimit(1)
-                        Text(model.artist.isEmpty ? (model.album.isEmpty ? "Unknown Artist" : model.album) : model.artist)
+                        Text(model.artist.isEmpty ? (model.album.isEmpty ? String(localized: "Unknown Artist") : model.album) : model.artist)
                             .font(Theme.secondary)
                             .foregroundStyle(Theme.secondaryText)
                             .lineLimit(1)
@@ -693,10 +693,10 @@ struct NowPlayingView: View {
 
                 // Transport row
                 HStack(spacing: 28) {
-                    IconButton(symbol: "backward.fill", size: 17, frame: 34, help: "Previous") { model.previous() }
+                    IconButton(symbol: "backward.fill", size: 17, frame: 34, help: String(localized: "Previous")) { model.previous() }
                     IconButton(symbol: model.isPlaying ? "pause.fill" : "play.fill", size: 22, frame: 36,
-                               help: model.isPlaying ? "Pause" : "Play") { model.playPause() }
-                    IconButton(symbol: "forward.fill", size: 17, frame: 34, help: "Next") { model.next() }
+                               help: model.isPlaying ? String(localized: "Pause") : String(localized: "Play")) { model.playPause() }
+                    IconButton(symbol: "forward.fill", size: 17, frame: 34, help: String(localized: "Next")) { model.next() }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.top, 4)

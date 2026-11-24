@@ -8,18 +8,18 @@ enum PomodoroPhase: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .focus: "Focus"
-        case .shortBreak: "Short break"
-        case .longBreak: "Long break"
+        case .focus: String(localized: "Focus")
+        case .shortBreak: String(localized: "Short break")
+        case .longBreak: String(localized: "Long break")
         }
     }
 
     /// Compact label for the picker buttons.
     var shortTitle: String {
         switch self {
-        case .focus: "Focus"
-        case .shortBreak: "Short"
-        case .longBreak: "Long"
+        case .focus: String(localized: "Focus")
+        case .shortBreak: String(localized: "Short")
+        case .longBreak: String(localized: "Long")
         }
     }
 
@@ -169,14 +169,14 @@ final class PomodoroModel: ObservableObject {
         remaining = duration(for: phase)
 
         if !quiet {
-            let message = phase == .focus ? "Focus time" : "Break time"
+            let message = phase == .focus ? String(localized: "Focus time") : String(localized: "Break time")
             NSSound(named: "Glass")?.play()
             NookState.shared.show(NookActivity(
                 id: "pomodoro",
                 symbol: phase.symbol,
                 tint: phase.tint,
                 title: message,
-                trailingText: "Done",
+                trailingText: String(localized: "Done"),
                 duration: 4
             ))
         }
@@ -280,14 +280,14 @@ struct PomodoroView: View {
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
-                .help(model.isRunning ? "Pause" : "Start")
+                .help(model.isRunning ? String(localized: "Pause") : String(localized: "Start"))
 
                 IconButton(
                     symbol: "arrow.counterclockwise",
                     size: Theme.rowIcon,
                     frame: 32,
                     tint: Theme.secondaryText,
-                    help: "Reset"
+                    help: String(localized: "Reset")
                 ) {
                     model.reset()
                 }
@@ -297,7 +297,7 @@ struct PomodoroView: View {
                     size: Theme.rowIcon,
                     frame: 32,
                     tint: Theme.secondaryText,
-                    help: "Skip phase"
+                    help: String(localized: "Skip phase")
                 ) {
                     model.skip()
                 }

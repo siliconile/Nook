@@ -26,6 +26,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Nook"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+cp -R Resources/*.lproj "$APP/Contents/Resources/"
 
 if [[ -n "${NOOK_VERSION:-}" ]]; then
   plutil -replace CFBundleShortVersionString -string "$NOOK_VERSION" "$APP/Contents/Info.plist"

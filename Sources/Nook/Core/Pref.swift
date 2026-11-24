@@ -58,5 +58,5 @@ enum Pref {
 enum OpenMode: String, CaseIterable, Identifiable {
     case hover, click
     var id: String { rawValue }
-    var title: String { self == .hover ? "Hover" : "Click" }
+    var title: String { self == .hover ? String(localized: "Hover") : String(localized: "Click") }
 }

@@ -240,7 +240,7 @@ private struct TaskRow: View {
                     size: 12,
                     frame: 22,
                     tint: Theme.secondaryText,
-                    help: "Delete",
+                    help: String(localized: "Delete"),
                     action: onDelete
                 )
             }

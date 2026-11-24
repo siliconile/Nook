@@ -170,7 +170,7 @@ struct ShelfView: View {
                     .frame(height: NookState.ListMetrics.gap)
 
                 HStack(spacing: Theme.smallSpacing) {
-                    Text("\(store.items.count) \(store.items.count == 1 ? "item" : "items")")
+                    Text("\(store.items.count) \(store.items.count == 1 ? String(localized: "item") : String(localized: "items"))")
                         .font(Theme.caption)
                         .foregroundStyle(Theme.tertiaryText)
                     Spacer()

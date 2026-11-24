@@ -243,7 +243,7 @@ struct ExpandedView: View {
                 }
                 Spacer(minLength: state.notchSize.width + 8)
                 HStack(spacing: 1) {
-                    IconButton(symbol: "gearshape", size: 12, frame: 22, tint: Theme.tertiaryText, help: "Settings") {
+                    IconButton(symbol: "gearshape", size: 12, frame: 22, tint: Theme.tertiaryText, help: String(localized: "Settings")) {
                         AppDelegate.shared?.openSettings()
                     }
                 }
