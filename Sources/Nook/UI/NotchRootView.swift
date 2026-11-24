@@ -235,7 +235,7 @@ struct ExpandedView: View {
             }
             .frame(height: state.notchSize.height)
             // Clear the flared top corners of the shape.
-            .padding(.horizontal, Theme.openTopRadius + 8)
+            .padding(.horizontal, Theme.hPad - 6) // align tab glyphs with content edges
 
             Group {
                 switch state.selectedTab {

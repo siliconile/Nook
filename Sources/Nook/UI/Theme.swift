@@ -5,10 +5,10 @@ import SwiftUI
 enum Theme {
     // MARK: Layout
     /// Horizontal inset of expanded content from the notch edge.
-    static let hPad: CGFloat = 20
+    static let hPad: CGFloat = 30
     /// Gap between the notch strip (tab bar row) and module content.
     static let topGap: CGFloat = 10
-    static let bottomPad: CGFloat = 18
+    static let bottomPad: CGFloat = 20
     static let spacing: CGFloat = 10
     static let smallSpacing: CGFloat = 6
 

@@ -681,17 +681,17 @@ struct NowPlayingView: View {
                     .foregroundStyle(Theme.tertiaryText)
                 }
                 .frame(height: 14)
-                .padding(.top, 12)
+                .padding(.top, 10)
 
                 // Transport row
                 HStack(spacing: 28) {
                     IconButton(symbol: "backward.fill", size: 17, frame: 34, help: "Previous") { model.previous() }
-                    IconButton(symbol: model.isPlaying ? "pause.fill" : "play.fill", size: 24, frame: 40,
+                    IconButton(symbol: model.isPlaying ? "pause.fill" : "play.fill", size: 22, frame: 36,
                                help: model.isPlaying ? "Pause" : "Play") { model.playPause() }
                     IconButton(symbol: "forward.fill", size: 17, frame: 34, help: "Next") { model.next() }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.top, 6)
+                .padding(.top, 4)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
