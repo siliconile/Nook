@@ -4,6 +4,7 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key><string>en</string>
 	<key>CFBundleExecutable</key><string>Nook</string>
+	<key>CFBundleIconFile</key><string>AppIcon</string>
 	<key>CFBundleIdentifier</key><string>com.local.Nook</string>
 	<key>CFBundleName</key><string>Nook</string>
 	<key>CFBundleDisplayName</key><string>Nook</string>
