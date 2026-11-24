@@ -70,7 +70,7 @@ final class NookState: ObservableObject {
     /// Physical notch size of the target screen (set by the window controller).
     @Published var notchSize = CGSize(width: 200, height: 32)
 
-    static let openSize = CGSize(width: 560, height: 192)
+    static let openSize = CGSize(width: 440, height: 192)
     static let sideWidth: CGFloat = 76
     /// Narrow wings while only music is playing, so menu-bar items stay visible.
     static let compactSideWidth: CGFloat = 36

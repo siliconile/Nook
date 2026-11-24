@@ -143,26 +143,25 @@ struct ExpandedView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Top strip: same height as the hardware notch; tabs left of it, actions right.
+            // Top strip (hardware-notch height): tabs split either side of the notch,
+            // settings at the far right. Keeps the open notch narrow.
+            let tabs = state.enabledTabs
+            let split = (tabs.count + 1) / 2
             HStack(spacing: 0) {
                 HStack(spacing: 1) {
-                    ForEach(state.enabledTabs) { tab in TabButton(tab: tab) }
+                    ForEach(tabs.prefix(split)) { tab in TabButton(tab: tab) }
                 }
-                Spacer(minLength: state.notchSize.width + 16)
-                HStack(spacing: 2) {
-                    Text(state.selectedTab.title)
-                        .font(Theme.caption)
-                        .foregroundStyle(Theme.tertiaryText)
-                        .lineLimit(1)
-                        .padding(.trailing, 4)
-                    IconButton(symbol: "gearshape", size: 12, frame: 24, tint: Theme.secondaryText, help: "Settings") {
+                Spacer(minLength: state.notchSize.width + 8)
+                HStack(spacing: 1) {
+                    ForEach(tabs.dropFirst(split)) { tab in TabButton(tab: tab) }
+                    IconButton(symbol: "gearshape", size: 12, frame: 22, tint: Theme.tertiaryText, help: "Settings") {
                         AppDelegate.shared?.openSettings()
                     }
                 }
             }
             .frame(height: state.notchSize.height)
             // Clear the flared top corners of the shape.
-            .padding(.horizontal, Theme.openTopRadius + 12)
+            .padding(.horizontal, Theme.openTopRadius + 8)
 
             Group {
                 switch state.selectedTab {
@@ -199,7 +198,7 @@ private struct TabButton: View {
             Image(systemName: tab.symbol)
                 .font(.system(size: Theme.tabIcon, weight: .semibold))
                 .foregroundStyle(selected ? Theme.primary : (hover ? Theme.secondaryText : Theme.tertiaryText))
-                .frame(width: 24, height: 24)
+                .frame(width: 22, height: 22)
                 .background(selected ? Theme.fillStrong : (hover ? Theme.fill : .clear),
                             in: RoundedRectangle(cornerRadius: 7))
                 .contentShape(Rectangle())
