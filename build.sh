@@ -14,5 +14,9 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 clang -dynamiclib -fobjc-arc -O2 -framework Foundation -arch arm64 -arch x86_64 \
   -o "$APP/Contents/Resources/NookMediaBridge.dylib" Helper/NookMediaBridge.m
 codesign --force --sign - "$APP/Contents/Resources/NookMediaBridge.dylib"
-codesign --force --sign - --entitlements Resources/Nook.entitlements "$APP"
+# Fixed designated requirement: macOS privacy permissions (Accessibility for the HUD,
+# Automation, Reminders) are keyed to it, so they survive rebuilds. Without it an ad-hoc
+# signature's requirement is its cdhash, which changes on every build.
+codesign --force --sign - --entitlements Resources/Nook.entitlements \
+  -r='designated => identifier "com.local.Nook"' "$APP"
 echo "Built $APP"

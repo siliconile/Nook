@@ -65,6 +65,22 @@ final class HUDController: ObservableObject {
         AXIsProcessTrusted()
     }
 
+    /// Polls until Accessibility is granted, then starts the tap (no relaunch needed).
+    private func waitForTrust() {
+        guard trustPoll == nil else { return }
+        trustPoll = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                guard let self, self.wantsRunning else { return }
+                if Self.isTrusted {
+                    self.trustPoll = nil
+                    self.start()
+                    return
+                }
+            }
+        }
+    }
+
     static func requestTrust() {
         let promptKey = "AXTrustedCheckOptionPrompt" as CFString
         let options = [promptKey: kCFBooleanTrue as Any] as CFDictionary
@@ -120,12 +136,17 @@ final class HUDController: ObservableObject {
         }
     }
 
+    private var trustPoll: Task<Void, Never>?
+
     func start() {
         wantsRunning = true
         guard Self.isTrusted else {
-            Self.requestTrust()
+            // Never prompt on launch (the system dialog would show every time). The user
+            // grants from Settings; we just wait for the permission and start then.
+            waitForTrust()
             return
         }
+        trustPoll?.cancel(); trustPoll = nil
         loadDisplayServicesIfNeeded()
         guard eventTap == nil else { return }
 
@@ -156,6 +177,7 @@ final class HUDController: ObservableObject {
 
     func stop() {
         wantsRunning = false
+        trustPoll?.cancel(); trustPoll = nil
         if let tap = eventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
             CFMachPortInvalidate(tap)
