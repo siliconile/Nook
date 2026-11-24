@@ -112,6 +112,7 @@ final class NookState: ObservableObject {
 
     /// Width of each wing beside the hardware notch while closed (0 = no wings).
     var closedSideWidth: CGFloat {
+        if isLevelActivity { return Self.levelSideWidth }
         if activity != nil || PomodoroModel.shared.isRunning { return Self.sideWidth }
         if UserDefaults.standard.bool(forKey: Pref.nowPlaying) && NowPlayingModel.shared.isPlaying {
             return Self.compactSideWidth
@@ -122,12 +123,19 @@ final class NookState: ObservableObject {
     /// Size of the black notch shape for the current state (excluding shadow).
     var contentSize: CGSize {
         if isOpen { return Self.openSize }
-        return CGSize(width: notchSize.width + closedSideWidth * 2, height: notchSize.height)
+        return closedContentSize(hovering: false)
     }
+
+    /// Level-style activity (volume, brightness, charging): shown as a row *below* the
+    /// hardware notch instead of in the narrow wings.
+    var isLevelActivity: Bool { activity?.progress != nil }
+    static let levelSideWidth: CGFloat = 62
+    static let levelRowHeight: CGFloat = 34
 
     /// Closed outline size; hovering lifts it a little in every direction.
     func closedContentSize(hovering: Bool) -> CGSize {
-        let base = CGSize(width: notchSize.width + closedSideWidth * 2, height: notchSize.height)
+        let base = CGSize(width: notchSize.width + closedSideWidth * 2,
+                          height: notchSize.height + (isLevelActivity ? Self.levelRowHeight : 0))
         _ = hovering // hover is applied as a scale of the whole notch in NotchRootView
         return base
     }

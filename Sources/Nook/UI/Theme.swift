@@ -61,6 +61,15 @@ enum Theme {
 /// Content reveal: slight blur + scale from the top, applied after the shape expands.
 /// Removal is instant so content never sits outside a shrinking shape.
 extension AnyTransition {
+    /// Faster reveal for HUD-style activities that respond to key presses.
+    static var notchActivity: AnyTransition {
+        .asymmetric(
+            insertion: .modifier(active: RevealModifier(progress: 0), identity: RevealModifier(progress: 1))
+                .animation(.easeOut(duration: 0.16).delay(0.1)),
+            removal: .identity
+        )
+    }
+
     static var notchContent: AnyTransition {
         .asymmetric(
             insertion: .modifier(active: RevealModifier(progress: 0), identity: RevealModifier(progress: 1))

@@ -5,12 +5,16 @@ import SwiftUI
 /// Lets layouts be checked without Screen Recording permission.
 @MainActor
 enum Snapshot {
+    /// True while rendering PNGs (native views such as the blur can't be captured).
+    static var isRendering = false
+
     static func runIfRequested() -> Bool {
         let args = CommandLine.arguments
         guard let i = args.firstIndex(of: "--snapshot"), i + 1 < args.count else { return false }
         let dir = URL(fileURLWithPath: args[i + 1], isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         Pref.registerDefaults()
+        isRendering = true
 
         let state = NookState.shared
         state.notchSize = CGSize(width: 185, height: 32)

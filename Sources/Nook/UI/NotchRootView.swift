@@ -17,7 +17,7 @@ struct NotchRootView: View {
 
         ZStack(alignment: .top) {
             // Feathered blur of the desktop around the open notch.
-            BackdropBlur()
+            (Snapshot.isRendering ? AnyView(Color.clear) : AnyView(BackdropBlur()))
                 .mask(
                     // Static mask (full open size): re-blurring a changing mask every
                     // frame made the animation stutter. Only the opacity animates.
@@ -43,9 +43,17 @@ struct NotchRootView: View {
                         .frame(width: open.width, height: open.height, alignment: .top)
                         .transition(.notchContent)
                 } else if state.closedSideWidth > 0 {
-                    closedContent
-                        .frame(width: state.contentSize.width, height: state.notchSize.height)
-                        .transition(.notchContent)
+                    Group {
+                        if let a = state.activity, let progress = a.progress {
+                            LevelRow(activity: a, progress: progress)
+                                .padding(.top, state.notchSize.height)
+                                .frame(width: state.contentSize.width, height: state.contentSize.height, alignment: .top)
+                        } else {
+                            closedContent
+                                .frame(width: state.contentSize.width, height: state.notchSize.height)
+                        }
+                    }
+                    .transition(.notchActivity)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .top)
@@ -56,12 +64,7 @@ struct NotchRootView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .contentShape(silhouette)
-        .onDrop(of: [UTType.fileURL], isTargeted: $state.isDropTargeted) { providers in
-            guard UserDefaults.standard.bool(forKey: Pref.shelf) else { return false }
-            ShelfStore.shared.add(providers: providers)
-            state.open(tab: .shelf)
-            return true
-        }
+        .modifier(ShelfDropTarget(enabled: !Snapshot.isRendering))
         .preferredColorScheme(.dark)
     }
 
@@ -118,6 +121,72 @@ struct NotchRootView: View {
             .padding(.trailing, 6)
         } else if let text = a.trailingText ?? a.title {
             Text(text).font(.system(size: 11, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+        }
+    }
+}
+
+/// Volume / brightness / charging row under the hardware notch.
+private struct LevelRow: View {
+    let activity: NookActivity
+    let progress: Double
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: activity.symbol)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(activity.tint)
+                .frame(width: 22)
+                .contentTransition(.symbolEffect(.replace))
+            SegmentedLevel(progress: progress, tint: activity.tint)
+            Text(activity.trailingText ?? "\(Int((max(0, min(1, progress)) * 100).rounded()))")
+                .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                .foregroundStyle(Theme.secondaryText)
+                .frame(width: 34, alignment: .trailing)
+        }
+        .padding(.horizontal, 22)
+        .frame(height: NookState.levelRowHeight - 6)
+    }
+}
+
+/// 16 rounded segments; the partially filled one is drawn proportionally.
+private struct SegmentedLevel: View {
+    let progress: Double
+    let tint: Color
+    private let count = 16
+
+    var body: some View {
+        let filled = max(0, min(1, progress)) * Double(count)
+        HStack(spacing: 2) {
+            ForEach(0..<count, id: \.self) { i in
+                let amount = max(0, min(1, filled - Double(i)))
+                Capsule().fill(Color.white.opacity(0.16))
+                    .overlay(alignment: .leading) {
+                        GeometryReader { g in
+                            Capsule().fill(tint).frame(width: g.size.width * amount)
+                        }
+                    }
+            }
+        }
+        .frame(height: 6)
+        .animation(.easeOut(duration: 0.12), value: progress)
+    }
+}
+
+/// Notch-wide file drop target that opens the Shelf.
+private struct ShelfDropTarget: ViewModifier {
+    @EnvironmentObject var state: NookState
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.onDrop(of: [UTType.fileURL], isTargeted: $state.isDropTargeted) { providers in
+                guard UserDefaults.standard.bool(forKey: Pref.shelf) else { return false }
+                ShelfStore.shared.add(providers: providers)
+                state.open(tab: .shelf)
+                return true
+            }
+        } else {
+            content
         }
     }
 }
