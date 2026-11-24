@@ -150,49 +150,57 @@ struct ShelfView: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(state.isDropTargeted ? Color.blue.opacity(0.12) : Color.white.opacity(0.04))
+            RoundedRectangle(cornerRadius: Theme.cardRadius)
+                .fill(state.isDropTargeted ? Color.accentColor.opacity(0.08) : .clear)
             content
-                .padding(8)
         }
-        .overlay(RoundedRectangle(cornerRadius: 12)
-            .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-            .foregroundStyle(state.isDropTargeted ? Color.blue : Color.white.opacity(0.18)))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.cardRadius)
+                .strokeBorder(
+                    state.isDropTargeted ? Color.accentColor : Theme.separator,
+                    style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])
+                )
+        )
+        .overlay(alignment: .topTrailing) {
+            if !store.items.isEmpty {
+                Button("Clear") { store.clear() }
+                    .font(Theme.caption)
+                    .foregroundStyle(Theme.secondaryText)
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, Theme.smallSpacing)
+                    .frame(minHeight: 24)
+                    .contentShape(Rectangle())
+                    .help("Remove all files from the shelf")
+                    .padding(.top, 4)
+                    .padding(.trailing, Theme.smallSpacing)
+            }
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @ViewBuilder
     private var content: some View {
         if store.items.isEmpty {
-            VStack(spacing: 8) {
+            VStack(spacing: Theme.smallSpacing) {
                 Image(systemName: "tray")
-                    .font(.system(size: 26, weight: .light))
-                    .foregroundStyle(.white.opacity(0.3))
+                    .font(.system(size: Theme.controlIcon))
+                    .foregroundStyle(Theme.tertiaryText)
                 Text("Drop files here")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.4))
+                    .font(Theme.caption)
+                    .foregroundStyle(Theme.tertiaryText)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            HStack(spacing: 10) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        ForEach(store.items) { item in
-                            ShelfTile(item: item)
-                        }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Theme.smallSpacing) {
+                    ForEach(store.items) { item in
+                        ShelfTile(item: item)
                     }
-                    .padding(.vertical, 2)
                 }
-                VStack {
-                    Spacer()
-                    Button("Clear") { store.clear() }
-                        .font(.system(size: 11, weight: .medium))
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.white.opacity(0.6))
-                        .help("Remove all files from the shelf")
-                    Spacer()
-                }
+                .padding(.leading, Theme.spacing)
+                .padding(.trailing, 48)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }
@@ -202,31 +210,35 @@ private struct ShelfTile: View {
     @State private var hovered = false
 
     var body: some View {
-        VStack(spacing: 5) {
+        VStack(spacing: Theme.smallSpacing) {
             Image(nsImage: item.icon)
                 .resizable()
                 .interpolation(.high)
-                .frame(width: 38, height: 38)
+                .frame(width: 44, height: 44)
             Text(item.name)
-                .font(.system(size: 10))
+                .font(Theme.caption)
+                .foregroundStyle(Theme.primary)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
                 .truncationMode(.middle)
         }
         .padding(.horizontal, 4)
-        .padding(.vertical, 8)
-        .frame(width: 84, height: 88)
-        .background(hovered ? Color.white.opacity(0.12) : Color.white.opacity(0.07),
-                    in: RoundedRectangle(cornerRadius: 10))
+        .frame(width: 76, height: 92)
+        .background(
+            hovered ? Theme.fill : .clear,
+            in: RoundedRectangle(cornerRadius: Theme.cardRadius)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: Theme.cardRadius))
         .overlay(alignment: .topTrailing) {
             if hovered {
                 Button { remove() } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .font(.system(size: Theme.smallIcon))
+                        .foregroundStyle(Theme.secondaryText)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .padding(3)
                 .help("Remove")
             }
         }

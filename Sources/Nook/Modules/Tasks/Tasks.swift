@@ -106,14 +106,14 @@ struct TasksView: View {
     @FocusState private var fieldFocused: Bool
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Theme.smallSpacing) {
             addField
 
             if store.items.isEmpty {
                 emptyState
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ScrollView(showsIndicators: true) {
+                ScrollView(.vertical, showsIndicators: false) {
                     LazyVStack(spacing: 2) {
                         ForEach(store.items) { item in
                             TaskRow(item: item) {
@@ -123,7 +123,6 @@ struct TasksView: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 2)
                 }
 
                 footer
@@ -135,51 +134,56 @@ struct TasksView: View {
     // MARK: - Pieces
 
     private var addField: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "plus")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.45))
-            TextField("Add a task…", text: $draft)
+        HStack(spacing: Theme.smallSpacing) {
+            Image(systemName: "plus.circle")
+                .font(.system(size: Theme.rowIcon))
+                .foregroundStyle(Theme.tertiaryText)
+            TextField("Add a task", text: $draft)
                 .textFieldStyle(.plain)
-                .font(.system(size: 13))
+                .font(Theme.body)
+                .foregroundStyle(Theme.primary)
                 .focused($fieldFocused)
                 .onSubmit(addDraft)
             if !draft.isEmpty {
                 Button(action: { draft = "" }) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.35))
+                        .font(.system(size: Theme.smallIcon))
+                        .foregroundStyle(Theme.tertiaryText)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 10).padding(.vertical, 7)
-        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal, Theme.spacing)
+        .frame(height: 30)
+        .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
     }
 
     private var footer: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Theme.smallSpacing) {
             Text("\(store.pendingCount) left")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white.opacity(0.5))
+                .font(Theme.caption)
+                .foregroundStyle(Theme.tertiaryText)
             Spacer()
             if store.hasCompleted {
                 Button("Clear completed") { store.clearCompleted() }
-                    .font(.system(size: 11, weight: .medium))
+                    .font(Theme.caption)
                     .buttonStyle(.plain)
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(Theme.secondaryText)
+                    .contentShape(Rectangle())
             }
         }
     }
 
     private var emptyState: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Theme.smallSpacing) {
             Image(systemName: "checklist")
-                .font(.system(size: 26, weight: .light))
-                .foregroundStyle(.white.opacity(0.25))
+                .font(.system(size: Theme.controlIcon))
+                .foregroundStyle(Theme.tertiaryText)
             Text("No tasks yet")
-                .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.4))
+                .font(Theme.caption)
+                .foregroundStyle(Theme.tertiaryText)
         }
     }
 
@@ -198,38 +202,42 @@ private struct TaskRow: View {
     @State private var hovered = false
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Theme.smallSpacing) {
             Button(action: onToggle) {
                 Image(systemName: item.isDone ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(item.isDone ? Color.blue : .white.opacity(0.4))
-                    .frame(width: 18)
+                    .font(.system(size: Theme.rowIcon))
+                    .foregroundStyle(item.isDone ? Color.green : Theme.tertiaryText)
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
             Text(item.title)
-                .font(.system(size: 13))
+                .font(Theme.body)
                 .lineLimit(1)
-                .strikethrough(item.isDone, color: .white.opacity(0.5))
-                .foregroundStyle(item.isDone ? .white.opacity(0.45) : .white)
+                .strikethrough(item.isDone, color: Theme.tertiaryText)
+                .foregroundStyle(item.isDone ? Theme.tertiaryText : Theme.primary)
 
-            Spacer(minLength: 4)
+            Spacer(minLength: Theme.smallSpacing)
 
             if hovered {
-                Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.45))
-                        .frame(width: 20, height: 20)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("Delete")
+                IconButton(
+                    symbol: "trash",
+                    size: Theme.rowIcon,
+                    frame: 24,
+                    tint: Theme.secondaryText,
+                    help: "Delete",
+                    action: onDelete
+                )
             }
         }
-        .padding(.horizontal, 6).padding(.vertical, 4)
-        .background(hovered ? Color.white.opacity(0.05) : .clear,
-                    in: RoundedRectangle(cornerRadius: 7))
+        .padding(.horizontal, Theme.smallSpacing)
+        .frame(height: 28)
+        .background(
+            hovered ? Theme.fill : .clear,
+            in: RoundedRectangle(cornerRadius: Theme.controlRadius)
+        )
+        .contentShape(Rectangle())
         .onHover { hovered = $0 }
     }
 }

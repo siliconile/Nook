@@ -636,146 +636,103 @@ struct NowPlayingView: View {
         if model.title.isEmpty {
             emptyState
         } else {
-            HStack(spacing: 16) {
-                artworkView
-                VStack(alignment: .leading, spacing: 8) {
-                    VStack(alignment: .leading, spacing: 2) {
+            VStack(spacing: 0) {
+                // Track row
+                HStack(spacing: 12) {
+                    Button(action: openSourceApp) { artworkView }
+                        .buttonStyle(.plain)
+                        .help("Open player")
+                    VStack(alignment: .leading, spacing: 3) {
                         Text(model.title)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .font(Theme.title)
+                            .foregroundStyle(Theme.primary)
                             .lineLimit(1)
-
                         Text(model.artist.isEmpty ? (model.album.isEmpty ? "Unknown Artist" : model.album) : model.artist)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.white.opacity(0.6))
+                            .font(Theme.secondary)
+                            .foregroundStyle(Theme.secondaryText)
                             .lineLimit(1)
                     }
-
-                    TimelineView(.periodic(from: .now, by: 0.5)) { context in
-                        let currentElapsed = interpolatedElapsed(at: context.date)
-                        let total = max(0, model.duration)
-                        let progress = total > 0 ? min(1, max(0, currentElapsed / total)) : 0
-                        let remaining = max(0, total - currentElapsed)
-
-                        VStack(spacing: 4) {
-                            GeometryReader { geo in
-                                Capsule()
-                                    .fill(Color.white.opacity(0.14))
-                                    .overlay(alignment: .leading) {
-                                        Capsule()
-                                            .fill(Color.white)
-                                            .frame(width: max(0, geo.size.width * progress))
-                                    }
-                            }
-                            .frame(height: 5)
-
-                            HStack {
-                                Text(Self.formatTime(currentElapsed))
-                                Spacer()
-                                Text("-\(Self.formatTime(remaining))")
-                            }
-                            .font(.system(size: 11, weight: .medium).monospacedDigit())
-                            .foregroundStyle(.white.opacity(0.55))
-                        }
-                    }
-
-                    HStack(spacing: 24) {
-                        Spacer()
-                        Button {
-                            model.previous()
-                        } label: {
-                            Image(systemName: "backward.fill")
-                                .font(.system(size: 14, weight: .semibold))
-                                .frame(width: 28, height: 28)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.white.opacity(0.85))
-
-                        Button {
-                            model.playPause()
-                        } label: {
-                            Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 15, weight: .bold))
-                                .frame(width: 34, height: 34)
-                                .background(Color.white.opacity(0.16), in: Circle())
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.white)
-
-                        Button {
-                            model.next()
-                        } label: {
-                            Image(systemName: "forward.fill")
-                                .font(.system(size: 14, weight: .semibold))
-                                .frame(width: 28, height: 28)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.white.opacity(0.85))
-                        Spacer()
-                    }
-                    .padding(.top, 2)
+                    Spacer(minLength: 8)
+                    NowPlayingCompactTrailing()
+                        .scaleEffect(1.2)
+                        .padding(.trailing, 6)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+
+                // Progress row
+                TimelineView(.periodic(from: .now, by: 0.5)) { context in
+                    let current = interpolatedElapsed(at: context.date)
+                    let total = max(0, model.duration)
+                    let progress = total > 0 ? min(1, max(0, current / total)) : 0
+                    HStack(spacing: 10) {
+                        Text(Self.formatTime(current))
+                            .frame(width: 34, alignment: .leading)
+                        GeometryReader { geo in
+                            Capsule().fill(Theme.fillStrong)
+                                .overlay(alignment: .leading) {
+                                    Capsule().fill(Color.white.opacity(0.85))
+                                        .frame(width: max(0, geo.size.width * progress))
+                                }
+                        }
+                        .frame(height: 4)
+                        Text("-\(Self.formatTime(max(0, total - current)))")
+                            .frame(width: 38, alignment: .trailing)
+                    }
+                    .font(Theme.mono)
+                    .foregroundStyle(Theme.tertiaryText)
+                }
+                .frame(height: 14)
+                .padding(.top, 12)
+
+                // Transport row
+                HStack(spacing: 28) {
+                    IconButton(symbol: "backward.fill", size: 17, frame: 34, help: "Previous") { model.previous() }
+                    IconButton(symbol: model.isPlaying ? "pause.fill" : "play.fill", size: 24, frame: 40,
+                               help: model.isPlaying ? "Pause" : "Play") { model.playPause() }
+                    IconButton(symbol: "forward.fill", size: 17, frame: 34, help: "Next") { model.next() }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 6)
             }
-            .padding(.horizontal, 4)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
     }
 
+    private func openSourceApp() {
+        guard let id = model.sourceBundleID,
+              let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+    }
+
     private var emptyState: some View {
-        VStack(spacing: 8) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.white.opacity(0.08))
-                    .frame(width: 44, height: 44)
-                Image(systemName: "music.note")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.5))
-            }
+        VStack(spacing: 6) {
+            Image(systemName: "music.note")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(Theme.tertiaryText)
             Text("Nothing playing")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.8))
-            Text("Play audio in Music, Spotify, or any media app")
-                .font(.system(size: 11))
-                .foregroundStyle(.white.opacity(0.45))
+                .font(Theme.caption)
+                .foregroundStyle(Theme.secondaryText)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @ViewBuilder
     private var artworkView: some View {
-        if let image = model.artwork {
-            Image(nsImage: image)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(width: 110, height: 110)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-                )
-        } else {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.16), Color.white.opacity(0.06)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: 110, height: 110)
-                .overlay {
-                    Image(systemName: "music.note")
-                        .font(.system(size: 34, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.45))
-                }
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
-                )
+        let shape = RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous)
+        Group {
+            if let image = model.artwork {
+                Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
+            } else {
+                shape.fill(Theme.fillStrong)
+                    .overlay {
+                        Image(systemName: "music.note")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(Theme.tertiaryText)
+                    }
+            }
         }
+        .frame(width: 56, height: 56)
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5))
     }
 
     private func interpolatedElapsed(at now: Date) -> TimeInterval {
@@ -811,7 +768,7 @@ struct NowPlayingCompactLeading: View {
                     .resizable()
                     .aspectRatio(contentMode: .fill)
             } else {
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [Color.white.opacity(0.22), Color.white.opacity(0.1)],
@@ -826,8 +783,8 @@ struct NowPlayingCompactLeading: View {
                     }
             }
         }
-        .frame(width: 20, height: 20)
-        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+        .frame(width: 22, height: 22)
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 }
 

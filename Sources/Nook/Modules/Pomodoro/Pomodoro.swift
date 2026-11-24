@@ -199,11 +199,11 @@ struct PomodoroView: View {
     @ObservedObject private var model = PomodoroModel.shared
 
     var body: some View {
-        HStack(spacing: 30) {
+        HStack(spacing: 28) {
             ring
             controls
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Ring
@@ -211,88 +211,96 @@ struct PomodoroView: View {
     private var ring: some View {
         ZStack {
             Circle()
-                .stroke(.white.opacity(0.1), lineWidth: 8)
+                .stroke(Theme.fill, lineWidth: 6)
             Circle()
                 .trim(from: 0, to: max(0.003, model.progress))
-                .stroke(model.phase.tint,
-                         style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                .stroke(
+                    model.phase.tint,
+                    style: StrokeStyle(lineWidth: 6, lineCap: .round)
+                )
                 .rotationEffect(.degrees(-90))
                 .animation(.linear(duration: 0.3), value: model.progress)
             VStack(spacing: 2) {
                 Text(model.remainingText)
-                    .font(.system(size: 30, weight: .semibold).monospacedDigit())
+                    .font(.system(size: 26, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(Theme.primary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                    .padding(.horizontal, 12)
+                    .minimumScaleFactor(0.7)
+                    .padding(.horizontal, Theme.spacing)
                 Text(model.phase.title)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.55))
+                    .font(Theme.caption)
+                    .foregroundStyle(Theme.secondaryText)
             }
         }
-        .frame(width: 124, height: 124)
+        .frame(width: 104, height: 104)
     }
 
     // MARK: - Controls
 
     private var controls: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            // Session dots for the current cycle.
-            HStack(spacing: 5) {
-                ForEach(0..<model.sessionsBeforeLong, id: \.self) { index in
-                    Capsule()
-                        .fill(index < model.completedFocusSessions
-                              ? Color.orange
-                              : Color.white.opacity(0.18))
-                        .frame(width: 14, height: 4)
-                }
-            }
-
+        VStack(alignment: .leading, spacing: Theme.spacing) {
             // Phase picker.
-            HStack(spacing: 4) {
+            HStack(spacing: Theme.smallSpacing) {
                 ForEach(PomodoroPhase.allCases, id: \.rawValue) { phase in
                     Button { model.select(phase) } label: {
                         Text(phase.shortTitle)
-                            .font(.system(size: 11, weight: .medium))
-                            .padding(.horizontal, 11).padding(.vertical, 5)
-                            .background(model.phase == phase ? Color.white.opacity(0.16) : Color.white.opacity(0.06),
-                                        in: Capsule())
-                            .foregroundStyle(model.phase == phase ? .white : .white.opacity(0.55))
+                            .font(Theme.caption)
+                            .foregroundStyle(model.phase == phase ? Theme.primary : Theme.secondaryText)
+                            .padding(.horizontal, Theme.spacing)
+                            .frame(height: 24)
+                            .background(
+                                model.phase == phase ? Theme.fillStrong : Theme.fill,
+                                in: Capsule()
+                            )
+                            .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
                 }
             }
 
+            // Session dots for the current cycle.
+            HStack(spacing: Theme.smallSpacing) {
+                ForEach(0..<model.sessionsBeforeLong, id: \.self) { index in
+                    Capsule()
+                        .fill(index < model.completedFocusSessions
+                              ? Color.orange
+                              : Theme.fillStrong)
+                        .frame(width: 14, height: 4)
+                }
+            }
+
             // Transport buttons.
-            HStack(spacing: 12) {
+            HStack(spacing: Theme.spacing) {
                 Button { model.isRunning ? model.pause() : model.start() } label: {
                     Image(systemName: model.isRunning ? "pause.fill" : "play.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(model.phase.tint)
-                        .frame(width: 36, height: 36)
-                        .background(model.phase.tint.opacity(0.16), in: Circle())
+                        .frame(width: 40, height: 40)
+                        .background(model.phase.tint.opacity(0.2), in: Circle())
+                        .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .help(model.isRunning ? "Pause" : "Start")
 
-                Button { model.reset() } label: {
-                    Image(systemName: "arrow.counterclockwise")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.75))
-                        .frame(width: 36, height: 36)
-                        .background(Color.white.opacity(0.08), in: Circle())
+                IconButton(
+                    symbol: "arrow.counterclockwise",
+                    size: 16,
+                    frame: 32,
+                    tint: Theme.secondaryText,
+                    help: "Reset"
+                ) {
+                    model.reset()
                 }
-                .buttonStyle(.plain)
-                .help("Reset")
 
-                Button { model.skip() } label: {
-                    Image(systemName: "forward.end.fill")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.75))
-                        .frame(width: 36, height: 36)
-                        .background(Color.white.opacity(0.08), in: Circle())
+                IconButton(
+                    symbol: "forward.end.fill",
+                    size: 16,
+                    frame: 32,
+                    tint: Theme.secondaryText,
+                    help: "Skip phase"
+                ) {
+                    model.skip()
                 }
-                .buttonStyle(.plain)
-                .help("Skip phase")
             }
         }
     }

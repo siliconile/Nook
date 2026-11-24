@@ -70,10 +70,10 @@ final class NookState: ObservableObject {
     /// Physical notch size of the target screen (set by the window controller).
     @Published var notchSize = CGSize(width: 200, height: 32)
 
-    static let openSize = CGSize(width: 540, height: 224)
+    static let openSize = CGSize(width: 560, height: 192)
     static let sideWidth: CGFloat = 76
     /// Narrow wings while only music is playing, so menu-bar items stay visible.
-    static let compactSideWidth: CGFloat = 34
+    static let compactSideWidth: CGFloat = 36
 
     private var activityTask: Task<Void, Never>?
 
@@ -92,12 +92,12 @@ final class NookState: ObservableObject {
     func open(tab: NookTab? = nil) {
         if let tab { selectedTab = tab }
         guard !isOpen else { return }
-        withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) { isOpen = true }
+        withAnimation(Theme.shapeSpring) { isOpen = true }
     }
 
     func close() {
         guard isOpen else { return }
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.9)) { isOpen = false }
+        withAnimation(Theme.closeSpring) { isOpen = false }
     }
 
     /// Whether something should be shown beside the closed notch.
@@ -119,6 +119,13 @@ final class NookState: ObservableObject {
     var contentSize: CGSize {
         if isOpen { return Self.openSize }
         return CGSize(width: notchSize.width + closedSideWidth * 2, height: notchSize.height)
+    }
+
+    /// Closed outline size; hovering lifts it a little in every direction.
+    func closedContentSize(hovering: Bool) -> CGSize {
+        let base = CGSize(width: notchSize.width + closedSideWidth * 2, height: notchSize.height)
+        guard hovering else { return base }
+        return CGSize(width: base.width + 12, height: base.height + 5)
     }
 
     var enabledTabs: [NookTab] {

@@ -254,6 +254,8 @@ final class RemindersModel: ObservableObject {
 struct RemindersView: View {
     @ObservedObject private var model = RemindersModel.shared
     @State private var newReminderTitle = ""
+    @State private var hoveredID: String?
+    @FocusState private var fieldFocused: Bool
 
     private static let privacySettingsURL = URL(
         string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Reminders"
@@ -274,87 +276,90 @@ struct RemindersView: View {
     }
 
     private var authorizedContent: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                HStack(spacing: 5) {
-                    Text("Reminders")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.85))
-                    Text("\(model.reminders.count)")
-                        .font(.system(size: 11, weight: .bold).monospacedDigit())
-                        .foregroundStyle(.white.opacity(0.9))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 1.5)
-                        .background(Color.white.opacity(0.14), in: Capsule())
+        VStack(spacing: Theme.smallSpacing) {
+            HStack(spacing: Theme.smallSpacing) {
+                Image(systemName: "plus.circle")
+                    .font(.system(size: Theme.rowIcon))
+                    .foregroundStyle(Theme.tertiaryText)
+                TextField("Add a reminder", text: $newReminderTitle)
+                    .textFieldStyle(.plain)
+                    .font(Theme.body)
+                    .foregroundStyle(Theme.primary)
+                    .focused($fieldFocused)
+                    .onSubmit {
+                        submitNewReminder()
+                    }
+                if !newReminderTitle.isEmpty {
+                    Button(action: { newReminderTitle = "" }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: Theme.smallIcon))
+                            .foregroundStyle(Theme.tertiaryText)
+                            .frame(width: 24, height: 24)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
-
-                HStack(spacing: 6) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.5))
-                    TextField("New reminder", text: $newReminderTitle)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white)
-                        .onSubmit {
-                            submitNewReminder()
-                        }
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.white.opacity(0.1))
-                )
             }
+            .padding(.horizontal, Theme.spacing)
+            .frame(height: 30)
+            .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
 
             if model.reminders.isEmpty {
-                VStack(spacing: 6) {
+                VStack(spacing: Theme.smallSpacing) {
                     Image(systemName: "checkmark.circle")
-                        .font(.system(size: 22))
-                        .foregroundStyle(.white.opacity(0.4))
-                    Text("No incomplete reminders")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.5))
+                        .font(.system(size: Theme.controlIcon))
+                        .foregroundStyle(Theme.tertiaryText)
+                    Text("No reminders")
+                        .font(Theme.caption)
+                        .foregroundStyle(Theme.tertiaryText)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: 4) {
+                    LazyVStack(spacing: 2) {
                         ForEach(model.reminders) { item in
                             reminderRow(item)
                         }
                     }
                 }
-                .frame(maxHeight: 138)
+
+                HStack(spacing: Theme.smallSpacing) {
+                    Text("\(model.reminders.count) left")
+                        .font(Theme.caption)
+                        .foregroundStyle(Theme.tertiaryText)
+                    Spacer()
+                }
             }
         }
     }
 
     private func reminderRow(_ item: ReminderItem) -> some View {
         let isCompleting = model.completingIDs.contains(item.id)
-        return HStack(spacing: 8) {
+        let isHovered = hoveredID == item.id
+        return HStack(spacing: Theme.smallSpacing) {
             Button {
                 model.toggleComplete(item.id)
             } label: {
                 Image(systemName: isCompleting ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(isCompleting ? item.color : .white.opacity(0.55))
+                    .font(.system(size: Theme.rowIcon))
+                    .foregroundStyle(isCompleting ? Color.green : Theme.tertiaryText)
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
             Text(item.title)
-                .font(.system(size: 12))
-                .strikethrough(isCompleting, color: .white.opacity(0.5))
-                .foregroundStyle(.white.opacity(isCompleting ? 0.45 : 0.92))
+                .font(Theme.body)
+                .strikethrough(isCompleting, color: Theme.tertiaryText)
+                .foregroundStyle(isCompleting ? Theme.tertiaryText : Theme.primary)
                 .lineLimit(1)
 
-            Spacer(minLength: 6)
+            Spacer(minLength: Theme.smallSpacing)
 
             if let due = item.dueDate {
                 Text(Self.formatRelativeDate(due, hasTime: item.hasDueTime))
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(item.isOverdue ? Color.red : Color.white.opacity(0.5))
+                    .font(Theme.caption)
+                    .foregroundStyle(item.isOverdue ? Color.red : Theme.tertiaryText)
                     .lineLimit(1)
             }
 
@@ -363,44 +368,49 @@ struct RemindersView: View {
                 .frame(width: 7, height: 7)
                 .help(item.listTitle)
         }
-        .padding(.horizontal, 9)
-        .padding(.vertical, 4)
+        .padding(.horizontal, Theme.smallSpacing)
+        .frame(height: 28)
         .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.white.opacity(0.08))
+            isHovered ? Theme.fill : .clear,
+            in: RoundedRectangle(cornerRadius: Theme.controlRadius)
         )
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            if hovering {
+                hoveredID = item.id
+            } else if hoveredID == item.id {
+                hoveredID = nil
+            }
+        }
         .transition(.opacity.combined(with: .move(edge: .trailing)))
     }
 
     private var unauthorizedContent: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: Theme.smallSpacing) {
             Image(systemName: "list.bullet.circle")
-                .font(.system(size: 24))
-                .foregroundStyle(.white.opacity(0.5))
+                .font(.system(size: Theme.controlIcon))
+                .foregroundStyle(Theme.tertiaryText)
 
-            Text("Allow access to Reminders to view and complete your items here.")
-                .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.7))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 16)
+            Text("Reminders access required")
+                .font(Theme.caption)
+                .foregroundStyle(Theme.tertiaryText)
 
             Button {
                 if let url = Self.privacySettingsURL {
                     NSWorkspace.shared.open(url)
                 }
             } label: {
-                Text("Open Privacy Settings")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.white.opacity(0.14))
-                    )
+                Text("Open Settings")
+                    .font(Theme.caption)
+                    .foregroundStyle(Theme.primary)
+                    .padding(.horizontal, Theme.spacing)
+                    .frame(height: 24)
+                    .background(Theme.fillStrong, in: Capsule())
+                    .contentShape(Capsule())
             }
             .buttonStyle(.plain)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func submitNewReminder() {

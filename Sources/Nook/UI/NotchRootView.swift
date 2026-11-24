@@ -9,134 +9,152 @@ struct NotchRootView: View {
     @AppStorage(Pref.nowPlaying) private var nowPlayingEnabled = true
 
     var body: some View {
-        let size = state.contentSize
-        VStack(spacing: 0) {
-            ZStack(alignment: .top) {
-                shape
-                    .fill(Color.black)
-                    .shadow(color: .black.opacity(state.isOpen ? 0.45 : 0), radius: 12, y: 4)
+        // Closed outline (hardware notch + optional wings), slightly larger on hover.
+        let closed = state.closedContentSize(hovering: state.isHovering)
+        let open = NookState.openSize
+        let progress: CGFloat = state.isOpen ? 1 : 0
+        let silhouette = NotchSilhouette(progress: progress, closedSize: closed, openSize: open)
 
-                Group {
+        ZStack(alignment: .top) {
+            // Feathered blur of the desktop around the open notch.
+            BackdropBlur()
+                .mask(
+                    NotchSilhouette(progress: progress, closedSize: closed, openSize: open, outset: Theme.blurOutset)
+                        .fill(Color.white)
+                        .blur(radius: Theme.blurFeather)
+                )
+                .opacity(state.isOpen ? 1 : 0)
+
+            silhouette
+                .fill(Color.black)
+                .shadow(color: .black.opacity(state.isOpen ? 0.35 : 0), radius: 12, y: 4)
+
+            // Content is inserted with a delayed reveal (after the outline has grown) and
+            // removed instantly, so it never shows outside the outline.
+            ZStack(alignment: .top) {
                 if state.isOpen {
                     ExpandedView()
-                        .padding(.horizontal, 24)
-                        .padding(.top, state.notchSize.height + 2)
-                        .padding(.bottom, 12)
-                        .frame(width: NookState.openSize.width, height: NookState.openSize.height)
-                        .transition(.identity) // no fade: the growing shape reveals it
-                } else {
+                        .frame(width: open.width, height: open.height, alignment: .top)
+                        .transition(.notchContent)
+                } else if state.closedSideWidth > 0 {
                     closedContent
-                        .frame(height: state.notchSize.height)
-                        .padding(.horizontal, state.closedSideWidth == NookState.compactSideWidth ? 8 : 14)
-                        .transition(.identity)
+                        .frame(width: state.contentSize.width, height: state.notchSize.height)
+                        .transition(.notchContent)
                 }
-                }
-                .clipShape(shape) // keep content inside the silhouette while it animates
             }
-            .frame(width: size.width, height: size.height)
-            .scaleEffect(state.isHovering && !state.isOpen ? 1.06 : 1, anchor: .top)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: state.isHovering)
-            .onDrop(of: [UTType.fileURL], isTargeted: $state.isDropTargeted) { providers in
-                guard UserDefaults.standard.bool(forKey: Pref.shelf) else { return false }
-                ShelfStore.shared.add(providers: providers)
-                state.open(tab: .shelf)
-                return true
-            }
-            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity, alignment: .top)
+            .clipShape(silhouette)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .contentShape(silhouette)
+        .onDrop(of: [UTType.fileURL], isTargeted: $state.isDropTargeted) { providers in
+            guard UserDefaults.standard.bool(forKey: Pref.shelf) else { return false }
+            ShelfStore.shared.add(providers: providers)
+            state.open(tab: .shelf)
+            return true
+        }
+        .animation(.spring(response: 0.28, dampingFraction: 0.7), value: state.isHovering)
         .preferredColorScheme(.dark)
     }
 
-    private var shape: NotchShape {
-        NotchShape(topRadius: state.isOpen ? 10 : 6, bottomRadius: state.isOpen ? 28 : 12)
-    }
-
-    /// Leading/trailing content beside the hardware notch while closed.
+    /// Leading/trailing wings beside the hardware notch while closed.
     @ViewBuilder private var closedContent: some View {
+        let side = state.closedSideWidth
+        let inner = side - (side == NookState.compactSideWidth ? 6 : 10) // keep clear of the flared top corners
         HStack(spacing: 0) {
-            if let a = state.activity {
-                Image(systemName: a.symbol)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(a.tint)
-                    .frame(width: NookState.sideWidth - 14, alignment: .leading)
-                Spacer(minLength: state.notchSize.width)
-                Group {
-                    if let progress = a.progress, let text = a.trailingText {
-                        // e.g. battery: short bar + percentage
-                        HStack(spacing: 5) {
-                            Capsule().fill(.white.opacity(0.2))
-                                .overlay(alignment: .leading) {
-                                    GeometryReader { g in
-                                        Capsule().fill(a.tint).frame(width: g.size.width * max(0, min(1, progress)))
-                                    }
-                                }
-                                .frame(height: 5)
-                            Text(text).font(.system(size: 10, weight: .semibold).monospacedDigit())
-                                .lineLimit(1).fixedSize()
-                        }
-                    } else if let progress = a.progress {
-                        Capsule().fill(.white.opacity(0.2))
-                            .overlay(alignment: .leading) {
-                                GeometryReader { g in
-                                    Capsule().fill(a.tint).frame(width: g.size.width * max(0, min(1, progress)))
-                                }
-                            }
-                            .frame(height: 5)
-                    } else if let text = a.trailingText ?? a.title {
-                        Text(text).font(.system(size: 11, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
-                    }
+            Group {
+                if let a = state.activity {
+                    Image(systemName: a.symbol)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(a.tint)
+                } else if pomodoro.isRunning {
+                    Image(systemName: pomodoro.phase.symbol)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(pomodoro.phase.tint)
+                } else if nowPlayingEnabled && nowPlaying.isPlaying {
+                    NowPlayingCompactLeading()
                 }
-                .frame(width: NookState.sideWidth - 20, alignment: .trailing)
-            } else if pomodoro.isRunning {
-                Image(systemName: pomodoro.phase.symbol)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(pomodoro.phase.tint)
-                    .frame(width: NookState.sideWidth - 14, alignment: .leading)
-                Spacer(minLength: state.notchSize.width)
-                Text(pomodoro.remainingText)
-                    .font(.system(size: 12, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(pomodoro.phase.tint)
-                    .frame(width: NookState.sideWidth - 20, alignment: .trailing)
-            } else if nowPlayingEnabled && nowPlaying.isPlaying {
-                NowPlayingCompactLeading()
-                    .frame(width: NookState.compactSideWidth - 8, alignment: .leading)
-                Spacer(minLength: state.notchSize.width)
-                NowPlayingCompactTrailing()
-                    .frame(width: NookState.compactSideWidth - 8, alignment: .trailing)
             }
+            .frame(width: inner, alignment: .center)
+            .padding(.leading, Theme.closedTopRadius)
+
+            Spacer(minLength: state.notchSize.width)
+
+            Group {
+                if let a = state.activity {
+                    activityTrailing(a)
+                } else if pomodoro.isRunning {
+                    Text(pomodoro.remainingText)
+                        .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(pomodoro.phase.tint)
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                } else if nowPlayingEnabled && nowPlaying.isPlaying {
+                    NowPlayingCompactTrailing()
+                }
+            }
+            .frame(width: inner, alignment: .center)
+            .padding(.trailing, Theme.closedTopRadius)
         }
         .foregroundStyle(.white)
     }
+
+    @ViewBuilder private func activityTrailing(_ a: NookActivity) -> some View {
+        if let progress = a.progress {
+            HStack(spacing: 5) {
+                ProgressCapsule(progress: progress, tint: a.tint)
+                if let text = a.trailingText {
+                    Text(text).font(.system(size: 10, weight: .semibold).monospacedDigit())
+                        .lineLimit(1).fixedSize()
+                }
+            }
+            .padding(.trailing, 6)
+        } else if let text = a.trailingText ?? a.title {
+            Text(text).font(.system(size: 11, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.7)
+        }
+    }
 }
 
-/// Expanded notch: tab bar + selected module.
+private struct ProgressCapsule: View {
+    let progress: Double
+    let tint: Color
+    var body: some View {
+        Capsule().fill(.white.opacity(0.2))
+            .overlay(alignment: .leading) {
+                GeometryReader { g in
+                    Capsule().fill(tint).frame(width: g.size.width * max(0, min(1, progress)))
+                }
+            }
+            .frame(height: 5)
+            .animation(.easeOut(duration: 0.15), value: progress)
+    }
+}
+
+/// Expanded notch: tabs live in the strip beside the hardware notch, module below.
 struct ExpandedView: View {
     @EnvironmentObject var state: NookState
 
     var body: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 4) {
-                ForEach(state.enabledTabs) { tab in
-                    Button { state.selectedTab = tab } label: {
-                        Image(systemName: tab.symbol)
-                            .font(.system(size: 12, weight: .semibold))
-                            .frame(width: 30, height: 24)
-                            .background(state.selectedTab == tab ? Color.white.opacity(0.16) : .clear,
-                                        in: RoundedRectangle(cornerRadius: 7))
-                            .foregroundStyle(state.selectedTab == tab ? .white : .white.opacity(0.55))
-                            .contentShape(Rectangle()) // whole tab is clickable, not just the glyph
+        VStack(spacing: 0) {
+            // Top strip: same height as the hardware notch; tabs left of it, actions right.
+            HStack(spacing: 0) {
+                HStack(spacing: 1) {
+                    ForEach(state.enabledTabs) { tab in TabButton(tab: tab) }
+                }
+                Spacer(minLength: state.notchSize.width + 16)
+                HStack(spacing: 2) {
+                    Text(state.selectedTab.title)
+                        .font(Theme.caption)
+                        .foregroundStyle(Theme.tertiaryText)
+                        .lineLimit(1)
+                        .padding(.trailing, 4)
+                    IconButton(symbol: "gearshape", size: 12, frame: 24, tint: Theme.secondaryText, help: "Settings") {
+                        AppDelegate.shared?.openSettings()
                     }
-                    .buttonStyle(.plain)
-                    .help(tab.title)
                 }
-                Spacer()
-                Text(state.selectedTab.title).font(.system(size: 11, weight: .medium)).foregroundStyle(.white.opacity(0.5))
-                Button { AppDelegate.shared?.openSettings() } label: {
-                    Image(systemName: "gearshape").font(.system(size: 12))
-                }
-                .buttonStyle(.plain).foregroundStyle(.white.opacity(0.55))
             }
+            .frame(height: state.notchSize.height)
+            // Clear the flared top corners of the shape.
+            .padding(.horizontal, Theme.openTopRadius + 12)
 
             Group {
                 switch state.selectedTab {
@@ -148,7 +166,10 @@ struct ExpandedView: View {
                 case .shelf: ShelfView()
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .padding(.horizontal, Theme.hPad)
+            .padding(.top, Theme.topGap)
+            .padding(.bottom, Theme.bottomPad)
         }
         .foregroundStyle(.white)
         .onAppear {
@@ -156,5 +177,27 @@ struct ExpandedView: View {
                 state.selectedTab = first
             }
         }
+    }
+}
+
+private struct TabButton: View {
+    @EnvironmentObject var state: NookState
+    let tab: NookTab
+    @State private var hover = false
+
+    var body: some View {
+        let selected = state.selectedTab == tab
+        Button { state.selectedTab = tab } label: {
+            Image(systemName: tab.symbol)
+                .font(.system(size: Theme.tabIcon, weight: .semibold))
+                .foregroundStyle(selected ? Theme.primary : (hover ? Theme.secondaryText : Theme.tertiaryText))
+                .frame(width: 24, height: 24)
+                .background(selected ? Theme.fillStrong : (hover ? Theme.fill : .clear),
+                            in: RoundedRectangle(cornerRadius: 7))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+        .help(tab.title)
     }
 }

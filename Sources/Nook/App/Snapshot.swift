@@ -14,7 +14,7 @@ enum Snapshot {
 
         let state = NookState.shared
         state.notchSize = CGSize(width: 185, height: 32)
-        let size = CGSize(width: NookState.openSize.width + 80, height: NookState.openSize.height + 40)
+        let size = CGSize(width: NookState.openSize.width + 2 * (Theme.blurOutset + Theme.blurFeather * 2), height: NookState.openSize.height + Theme.blurOutset + Theme.blurFeather * 2)
 
         func render(_ name: String) {
             let view = NotchRootView().environmentObject(state)

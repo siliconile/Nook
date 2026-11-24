@@ -43,7 +43,9 @@ final class NotchWindowController {
     private var menuTracking = false
 
     /// Panel is bigger than the open notch so shadows/animations are not clipped.
-    private let panelSize = CGSize(width: NookState.openSize.width + 80, height: NookState.openSize.height + 40)
+    /// Room around the open notch for the shadow and the feathered backdrop blur.
+    private let panelSize = CGSize(width: NookState.openSize.width + 2 * (Theme.blurOutset + Theme.blurFeather * 2),
+                                   height: NookState.openSize.height + Theme.blurOutset + Theme.blurFeather * 2)
 
     func start() {
         panel = NotchPanel(contentRect: NSRect(origin: .zero, size: panelSize))

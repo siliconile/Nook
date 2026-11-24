@@ -44,46 +44,43 @@ final class NotesStore: ObservableObject {
 struct NotesView: View {
     @ObservedObject private var store = NotesStore.shared
     @State private var copied = false
+    @FocusState private var isFocused: Bool
 
     var body: some View {
-        VStack(spacing: 6) {
-            ZStack(alignment: .topLeading) {
-                TextEditor(text: $store.text)
-                    .scrollContentBackground(.hidden)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.white)
-                if store.text.isEmpty {
-                    Text("Start typing…")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.white.opacity(0.35))
-                        .padding(.top, 8).padding(.leading, 6)
-                        .allowsHitTesting(false)
-                }
+        VStack(spacing: Theme.smallSpacing) {
+            ScrollView(.vertical, showsIndicators: false) {
+                TextField("Start typing…", text: $store.text, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .font(Theme.body)
+                    .foregroundStyle(Theme.primary)
+                    .focused($isFocused)
+                    .frame(maxWidth: .infinity, minHeight: 76, alignment: .topLeading)
             }
-            .padding(6)
-            .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+            .padding(10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+            .contentShape(Rectangle())
+            .onTapGesture { isFocused = true }
 
-            HStack(spacing: 8) {
+            HStack(spacing: Theme.smallSpacing) {
                 Text("\(store.characterCount) characters")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.45))
+                    .font(Theme.caption)
+                    .foregroundStyle(Theme.tertiaryText)
                 Spacer()
-                Button {
+                IconButton(
+                    symbol: copied ? "checkmark" : "doc.on.doc",
+                    size: Theme.rowIcon,
+                    frame: 24,
+                    tint: copied ? .green : Theme.tertiaryText,
+                    help: copied ? "Copied" : "Copy"
+                ) {
                     copyAll()
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                            .font(.system(size: 10))
-                        Text(copied ? "Copied" : "Copy")
-                    }
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.6))
                 }
-                .buttonStyle(.plain)
                 .disabled(store.text.isEmpty)
+                .opacity(store.text.isEmpty ? 0.4 : 1)
             }
         }
-        .padding(.bottom, 2)
+        .onAppear { isFocused = true }
     }
 
     private func copyAll() {
