@@ -6,6 +6,8 @@ All notable changes to Nook are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-24
+
 ### Fixed
 - Notes froze the app after pasting a large text: styling is now incremental (only edited
   paragraphs), layout is lazy, and the notch height no longer lays out the whole document.
