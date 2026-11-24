@@ -146,13 +146,13 @@ private struct LevelWings: View {
                     .lineLimit(1).fixedSize()
                 Spacer(minLength: 0)
             }
-            .padding(.leading, Theme.closedTopRadius + 10)
+            .padding(.leading, Theme.closedTopRadius + 8)
 
-            Spacer(minLength: notchWidth + 16)
+            Spacer(minLength: notchWidth + 10)
 
             ProgressCapsule(progress: progress, tint: activity.tint)
                 .frame(height: 5)
-                .padding(.trailing, Theme.closedTopRadius + 12)
+                .padding(.trailing, Theme.closedTopRadius + 8)
         }
     }
 }

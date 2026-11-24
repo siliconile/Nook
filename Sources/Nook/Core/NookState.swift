@@ -129,7 +129,7 @@ final class NookState: ObservableObject {
     /// Level-style activity (volume, brightness, charging): shown in wider wings beside
     /// the hardware notch.
     var isLevelActivity: Bool { activity?.progress != nil }
-    static let levelSideWidth: CGFloat = 92
+    static let levelSideWidth: CGFloat = 72
 
     /// Closed outline size; hovering lifts it a little in every direction.
     func closedContentSize(hovering: Bool) -> CGSize {
