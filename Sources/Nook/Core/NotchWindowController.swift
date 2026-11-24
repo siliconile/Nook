@@ -217,15 +217,18 @@ final class NotchWindowController {
         if open {
             // Opened by hover counts as "entered"; opened from the menu does not.
             pointerEnteredSinceOpen = activeRect(padding: 12).contains(NSEvent.mouseLocation)
-            // $isOpen fires before the value changes and canBecomeKey reads it: defer.
-            DispatchQueue.main.async { [weak self] in self?.panel.makeKey() }
+            // Don't grab keyboard focus on open: the panel becomes key only when the user
+            // clicks inside it (e.g. into Notes), so most closes need no focus hand-back.
         } else {
             pointerEnteredSinceOpen = false
             panel.makeFirstResponder(nil)
-            if panel.isKeyWindow {
-                // Give key status back: re-ordering a now non-key-capable panel drops it.
-                panel.orderOut(nil)
-                panel.orderFrontRegardless()
+            guard panel.isKeyWindow else { return }
+            // Give key status back, but only after the close animation has finished:
+            // re-ordering the window mid-animation caused a visible glitch.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                guard let self, !self.state.isOpen, self.panel.isKeyWindow else { return }
+                self.panel.orderOut(nil)
+                self.panel.orderFrontRegardless()
             }
         }
     }
