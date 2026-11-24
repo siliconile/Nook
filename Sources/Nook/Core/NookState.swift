@@ -124,8 +124,8 @@ final class NookState: ObservableObject {
     /// Closed outline size; hovering lifts it a little in every direction.
     func closedContentSize(hovering: Bool) -> CGSize {
         let base = CGSize(width: notchSize.width + closedSideWidth * 2, height: notchSize.height)
-        guard hovering else { return base }
-        return CGSize(width: base.width + 12, height: base.height + 5)
+        _ = hovering // hover is applied as a scale of the whole notch in NotchRootView
+        return base
     }
 
     var enabledTabs: [NookTab] {

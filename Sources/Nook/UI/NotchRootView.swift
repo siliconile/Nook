@@ -19,12 +19,18 @@ struct NotchRootView: View {
             // Feathered blur of the desktop around the open notch.
             BackdropBlur()
                 .mask(
-                    NotchSilhouette(progress: progress, closedSize: closed, openSize: open, outset: Theme.blurOutset)
+                    // Static mask (full open size): re-blurring a changing mask every
+                    // frame made the animation stutter. Only the opacity animates.
+                    NotchSilhouette(progress: 1, closedSize: closed, openSize: open, outset: Theme.blurOutset)
                         .fill(Color.white)
                         .blur(radius: Theme.blurFeather)
+                        .drawingGroup()
                 )
                 .opacity(state.isOpen ? 1 : 0)
+                .animation(state.isOpen ? Theme.contentIn : .easeOut(duration: 0.15), value: state.isOpen)
 
+            // Notch + its content, scaled together on hover (grows left, right and down).
+            ZStack(alignment: .top) {
             silhouette
                 .fill(Color.black)
                 .shadow(color: .black.opacity(state.isOpen ? 0.35 : 0), radius: 12, y: 4)
@@ -44,6 +50,9 @@ struct NotchRootView: View {
             }
             .frame(maxWidth: .infinity, alignment: .top)
             .clipShape(silhouette)
+            }
+            .scaleEffect(state.isHovering && !state.isOpen ? Theme.hoverScale : 1, anchor: .top)
+            .animation(Theme.hoverSpring, value: state.isHovering)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .contentShape(silhouette)
@@ -53,7 +62,6 @@ struct NotchRootView: View {
             state.open(tab: .shelf)
             return true
         }
-        .animation(.spring(response: 0.28, dampingFraction: 0.7), value: state.isHovering)
         .preferredColorScheme(.dark)
     }
 

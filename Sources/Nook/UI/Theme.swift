@@ -46,10 +46,14 @@ enum Theme {
 
     // MARK: Motion
     /// Shape size changes.
-    static let shapeSpring = Animation.spring(response: 0.42, dampingFraction: 0.82)
-    static let closeSpring = Animation.spring(response: 0.34, dampingFraction: 0.92)
+    /// Slow, soft open with only a hint of settle; close slightly quicker, no bounce.
+    static let shapeSpring = Animation.spring(duration: 0.6, bounce: 0.12)
+    static let closeSpring = Animation.spring(duration: 0.5, bounce: 0)
     /// Content appears only once the shape has (almost) finished growing.
-    static let contentIn = Animation.easeOut(duration: 0.18).delay(0.2)
+    static let contentIn = Animation.easeOut(duration: 0.28).delay(0.3)
+    /// Hover lift of the closed notch (scales the whole notch, content included).
+    static let hoverScale: CGFloat = 1.06
+    static let hoverSpring = Animation.spring(duration: 0.35, bounce: 0.15)
 }
 
 /// Content reveal: slight blur + scale from the top, applied after the shape expands.
