@@ -83,9 +83,16 @@ struct NotchRootView: View {
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(a.tint)
                 } else if pomodoro.isRunning {
-                    Image(systemName: pomodoro.phase.symbol)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(pomodoro.phase.tint)
+                    // Mini ring: share of the session still remaining.
+                    ZStack {
+                        Circle().stroke(pomodoro.phase.tint.opacity(0.25), lineWidth: 2.5)
+                        Circle()
+                            .trim(from: 0, to: max(0.001, 1 - pomodoro.progress))
+                            .stroke(pomodoro.phase.tint, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                            .animation(.linear(duration: 1), value: pomodoro.progress)
+                    }
+                    .frame(width: 14, height: 14)
                 } else if nowPlayingEnabled && nowPlaying.isPlaying {
                     NowPlayingCompactLeading()
                 }
@@ -103,6 +110,7 @@ struct NotchRootView: View {
                         .font(.system(size: 12, weight: .semibold).monospacedDigit())
                         .foregroundStyle(pomodoro.phase.tint)
                         .lineLimit(1).minimumScaleFactor(0.7)
+                        .contentTransition(.numericText(countsDown: true))
                 } else if nowPlayingEnabled && nowPlaying.isPlaying {
                     NowPlayingCompactTrailing()
                 }

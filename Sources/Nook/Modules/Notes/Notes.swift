@@ -5,8 +5,10 @@ import SwiftUI
 final class NotesStore: ObservableObject {
     static let shared = NotesStore()
 
-    /// The single scratchpad document.
+    /// The single scratchpad document (Markdown).
     @Published var text: String = ""
+    /// Laid-out text height reported by the editor (drives the notch height; not saved).
+    @Published var contentHeight: CGFloat = 0
 
     private let fileURL = Pref.dataDirectory.appendingPathComponent("notes.md")
     private var autosave: AnyCancellable?
@@ -28,6 +30,7 @@ final class NotesStore: ObservableObject {
     }
 
     var characterCount: Int { text.count }
+    var wordCount: Int { text.split { $0.isWhitespace || $0.isNewline }.count }
 
     // MARK: - Internals
 
@@ -44,56 +47,48 @@ final class NotesStore: ObservableObject {
 struct NotesView: View {
     @ObservedObject private var store = NotesStore.shared
     @State private var copied = false
-    @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
-            ScrollView(.vertical, showsIndicators: false) {
-                TextField("Start typing…", text: $store.text, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .font(Theme.body)
-                    .foregroundStyle(Theme.primary)
-                    .lineSpacing(NookState.ListMetrics.noteLineHeight - 16)
-                    .multilineTextAlignment(.leading)
-                    .focusEffectDisabled()
-                    .focused($isFocused)
-                    .frame(
-                        maxWidth: .infinity,
-                        minHeight: NookState.ListMetrics.noteLineHeight * 4,
-                        alignment: .topLeading
-                    )
+            ZStack(alignment: .topLeading) {
+                MarkdownEditor(text: $store.text) { height in
+                    if abs(store.contentHeight - height) > 0.5 { store.contentHeight = height }
+                }
+                if store.text.isEmpty {
+                    Text("Start typing… Markdown works: # heading, **bold**, - [ ] todo")
+                        .font(Theme.body)
+                        .foregroundStyle(Theme.tertiaryText)
+                        .padding(.top, 2)
+                        .allowsHitTesting(false)
+                }
             }
-            .padding(10)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(Theme.fill, in: RoundedRectangle(cornerRadius: 12))
-            .contentShape(Rectangle())
-            .onTapGesture { isFocused = true }
+            .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
 
-            Spacer()
-                .frame(height: NookState.ListMetrics.gap)
+            Spacer().frame(height: NookState.ListMetrics.gap)
 
             HStack(spacing: Theme.smallSpacing) {
-                Text("\(store.characterCount) characters")
-                    .font(Theme.caption)
-                    .foregroundStyle(Theme.tertiaryText)
+                Image(systemName: "text.badge.checkmark")
+                    .font(.system(size: 10, weight: .semibold))
+                Text("Markdown")
+                Text("·")
+                Text("\(store.wordCount) words")
                 Spacer()
-                IconButton(
-                    symbol: copied ? "checkmark" : "doc.on.doc",
-                    size: 11,
-                    frame: 20,
-                    tint: copied ? .green : Theme.tertiaryText,
-                    help: copied ? "Copied" : "Copy"
-                ) {
+                IconButton(symbol: copied ? "checkmark" : "doc.on.doc", size: 11, frame: 20,
+                           tint: copied ? .green : Theme.tertiaryText, help: copied ? "Copied" : "Copy as Markdown") {
                     copyAll()
                 }
                 .disabled(store.text.isEmpty)
                 .opacity(store.text.isEmpty ? 0.4 : 1)
             }
-            .padding(.horizontal, 10)
+            .font(Theme.caption)
+            .foregroundStyle(Theme.tertiaryText)
+            .padding(.horizontal, 6)
             .frame(height: NookState.ListMetrics.footerHeight)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .onAppear { isFocused = true }
     }
 
     private func copyAll() {

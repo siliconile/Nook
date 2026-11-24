@@ -104,10 +104,9 @@ final class NookState: ObservableObject {
             content = RemindersModel.shared.authorizationStatus == .fullAccess
                 ? list(RemindersModel.shared.reminders.count) : 0
         case .notes:
-            // Rough line estimate: explicit lines plus wrapping at ~60 characters.
-            let lines = NotesStore.shared.text.split(separator: "\n", omittingEmptySubsequences: false)
-                .reduce(0) { $0 + max(1, Int(ceil(Double($1.count) / 60))) }
-            content = CGFloat(max(4, lines)) * M.noteLineHeight + 20 + M.gap + M.footerHeight
+            // Real laid-out height reported by the editor (min 4 lines) + card padding.
+            let text = max(NookState.ListMetrics.noteLineHeight * 4, NotesStore.shared.contentHeight)
+            content = text + 20 + M.gap + M.footerHeight
         default:
             content = 0
         }
@@ -116,6 +115,7 @@ final class NookState: ObservableObject {
     static let sideWidth: CGFloat = 76
     /// Narrow wings while only music is playing, so menu-bar items stay visible.
     static let compactSideWidth: CGFloat = 36
+    static let pomodoroSideWidth: CGFloat = 64
 
     private var activityTask: Task<Void, Never>?
 
@@ -155,7 +155,8 @@ final class NookState: ObservableObject {
     /// Width of each wing beside the hardware notch while closed (0 = no wings).
     var closedSideWidth: CGFloat {
         if isLevelActivity { return Self.levelSideWidth }
-        if activity != nil || PomodoroModel.shared.isRunning { return Self.sideWidth }
+        if activity != nil { return Self.sideWidth }
+        if PomodoroModel.shared.isRunning { return Self.pomodoroSideWidth }
         if UserDefaults.standard.bool(forKey: Pref.nowPlaying) && NowPlayingModel.shared.isPlaying {
             return Self.compactSideWidth
         }
