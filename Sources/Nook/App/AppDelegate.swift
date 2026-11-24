@@ -5,6 +5,7 @@ import SwiftUI
 enum NookMain {
     static func main() {
         let app = NSApplication.shared
+        if MainActor.assumeIsolated({ Snapshot.runIfRequested() }) { return }
         let delegate = AppDelegate()
         app.delegate = delegate
         app.setActivationPolicy(.accessory)

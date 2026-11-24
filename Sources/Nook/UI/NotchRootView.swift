@@ -30,6 +30,8 @@ struct NotchRootView: View {
                 }
             }
             .frame(width: size.width, height: size.height)
+            .scaleEffect(state.isHovering && !state.isOpen ? 1.06 : 1, anchor: .top)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: state.isHovering)
             .onDrop(of: [UTType.fileURL], isTargeted: $state.isDropTargeted) { providers in
                 ShelfStore.shared.add(providers: providers)
                 state.open(tab: .shelf)

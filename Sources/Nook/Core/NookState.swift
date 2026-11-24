@@ -65,6 +65,8 @@ final class NookState: ObservableObject {
     @Published private(set) var activity: NookActivity?
     /// True while a file drag hovers the notch, so the shelf can highlight.
     @Published var isDropTargeted = false
+    /// Pointer is over the closed notch (drives the hover "lift").
+    @Published var isHovering = false
     /// Physical notch size of the target screen (set by the window controller).
     @Published var notchSize = CGSize(width: 200, height: 32)
 

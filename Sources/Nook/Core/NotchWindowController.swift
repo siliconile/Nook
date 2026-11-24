@@ -33,6 +33,7 @@ final class NotchWindowController {
     private var monitors: [Any] = []
     private var hoverTask: Task<Void, Never>?
     private var bag = Set<AnyCancellable>()
+    private var hiddenForFullscreen = false
 
     /// Panel is bigger than the open notch so shadows/animations are not clipped.
     private let panelSize = CGSize(width: NookState.openSize.width + 80, height: NookState.openSize.height + 40)
@@ -53,6 +54,15 @@ final class NotchWindowController {
         state.$isOpen
             .sink { [weak self] open in self?.openChanged(open) }
             .store(in: &bag)
+
+        // Hide while a fullscreen app owns the notch screen.
+        let ws = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.activeSpaceDidChangeNotification, NSWorkspace.didActivateApplicationNotification] {
+            ws.publisher(for: name)
+                .delay(for: .milliseconds(400), scheduler: RunLoop.main)
+                .sink { [weak self] _ in self?.updateFullscreenVisibility() }
+                .store(in: &bag)
+        }
 
         let mask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged, .leftMouseUp]
         if let g = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { [weak self] e in
@@ -94,6 +104,7 @@ final class NotchWindowController {
     }
 
     private func handle(_ event: NSEvent) {
+        guard !hiddenForFullscreen else { return }
         let p = NSEvent.mouseLocation
         let inside = activeRect(padding: state.isOpen ? 12 : 4).contains(p)
 
@@ -104,6 +115,13 @@ final class NotchWindowController {
             return
         }
         if event.type == .leftMouseDragged || event.type == .leftMouseUp { return }
+
+        if inside != state.isHovering {
+            state.isHovering = inside
+            if inside && !state.isOpen {
+                NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+            }
+        }
 
         if inside {
             panel.ignoresMouseEvents = false
@@ -120,6 +138,37 @@ final class NotchWindowController {
             if state.isOpen, !state.isDropTargeted { state.close() }
             if !state.isOpen { panel.ignoresMouseEvents = true }
         }
+    }
+
+    /// True when the menu bar is not on screen for the notch display, i.e. a fullscreen
+    /// app (video, game, presentation) is frontmost there.
+    private func menuBarHidden() -> Bool {
+        guard let screen = targetScreen,
+              let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]
+        else { return false }
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+        // Convert screen frame to CG (top-left origin) coordinates.
+        let f = screen.frame
+        let cgRect = CGRect(x: f.minX, y: primaryHeight - f.maxY, width: f.width, height: f.height)
+        // Window titles need Screen Recording permission, so identify the menu bar by
+        // its window level + position instead: a thin main-menu-level strip at the top edge.
+        let menuLevel = Int(CGWindowLevelForKey(.mainMenuWindow))
+        let strips = list.filter { ($0[kCGWindowLayer as String] as? Int) == menuLevel }
+        if strips.isEmpty { return false } // can't tell -> stay visible
+        let hasMenuBar = strips.contains { info in
+            guard let b = info[kCGWindowBounds as String] as? [String: CGFloat],
+                  let x = b["X"], let y = b["Y"], let h = b["Height"] else { return false }
+            return h < 60 && abs(y - cgRect.minY) < 2 && cgRect.contains(CGPoint(x: x + 1, y: y + 1))
+        }
+        return !hasMenuBar
+    }
+
+    private func updateFullscreenVisibility() {
+        let hide = menuBarHidden()
+        hiddenForFullscreen = hide
+        if hide { state.close() }
+        panel.animator().alphaValue = hide ? 0 : 1
+        if hide { panel.ignoresMouseEvents = true }
     }
 
     private func dragHasFiles() -> Bool {
