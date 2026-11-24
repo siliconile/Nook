@@ -28,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Pref.registerDefaults()
+        installEditMenu()
         notch.start()
         setupStatusItem()
         startModules()
@@ -48,6 +49,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if d.bool(forKey: Pref.battery) { BatteryMonitor.shared.start() } else { BatteryMonitor.shared.stop() }
         if d.bool(forKey: Pref.hud) { HUDController.shared.start() } else { HUDController.shared.stop() }
         if d.bool(forKey: Pref.reminders) { RemindersModel.shared.start() }
+    }
+
+    /// Accessory apps have no menu bar, so Cmd+A/C/V/X/Z have nothing to route through.
+    /// A (never shown) main menu with an Edit menu makes the standard shortcuts work in
+    /// Notes, Tasks and every text field.
+    private func installEditMenu() {
+        let main = NSMenu()
+        let appItem = NSMenuItem()
+        appItem.submenu = NSMenu()
+        main.addItem(appItem)
+
+        let editItem = NSMenuItem()
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        let redo = edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "z")
+        redo.keyEquivalentModifierMask = [.command, .shift]
+        edit.addItem(.separator())
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editItem.submenu = edit
+        main.addItem(editItem)
+        NSApp.mainMenu = main
     }
 
     private func setupStatusItem() {

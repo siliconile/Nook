@@ -75,7 +75,9 @@ struct NotchRootView: View {
     /// Leading/trailing wings beside the hardware notch while closed.
     @ViewBuilder private var closedContent: some View {
         let side = state.closedSideWidth
-        let inner = side - (side == NookState.compactSideWidth ? 6 : 10) // keep clear of the flared top corners
+        // Same distance from the outer edge on both sides (past the flared top corner).
+        let margin: CGFloat = Theme.closedTopRadius + (side == NookState.compactSideWidth ? 5 : 12)
+        let inner = side - margin
         HStack(spacing: 0) {
             Group {
                 if let a = state.activity {
@@ -97,8 +99,8 @@ struct NotchRootView: View {
                     NowPlayingCompactLeading()
                 }
             }
-            .frame(width: inner, alignment: .center)
-            .padding(.leading, Theme.closedTopRadius)
+            .frame(width: inner, alignment: .leading)
+            .padding(.leading, margin)
 
             Spacer(minLength: state.notchSize.width)
 
@@ -115,8 +117,8 @@ struct NotchRootView: View {
                     NowPlayingCompactTrailing()
                 }
             }
-            .frame(width: inner, alignment: .center)
-            .padding(.trailing, Theme.closedTopRadius)
+            .frame(width: inner, alignment: .trailing)
+            .padding(.trailing, margin)
         }
         .foregroundStyle(.white)
     }

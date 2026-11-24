@@ -23,6 +23,28 @@ final class NotchPanel: NSPanel {
     // closed notch never traps keystrokes meant for other apps.
     override var canBecomeKey: Bool { MainActor.assumeIsolated { NookState.shared.isOpen } }
     override var canBecomeMain: Bool { false }
+
+    /// Standard editing shortcuts. The panel is non-activating, so Nook isn't the active
+    /// app and its (hidden) Edit menu may not see these; route them to the responder chain.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard mods == .command || mods == [.command, .shift],
+              let key = event.charactersIgnoringModifiers?.lowercased() else {
+            return super.performKeyEquivalent(with: event)
+        }
+        let action: Selector?
+        switch (key, mods.contains(.shift)) {
+        case ("a", false): action = #selector(NSText.selectAll(_:))
+        case ("c", false): action = #selector(NSText.copy(_:))
+        case ("v", false): action = #selector(NSText.paste(_:))
+        case ("x", false): action = #selector(NSText.cut(_:))
+        case ("z", false): action = Selector(("undo:"))
+        case ("z", true): action = Selector(("redo:"))
+        default: action = nil
+        }
+        if let action, NSApp.sendAction(action, to: nil, from: self) { return true }
+        return super.performKeyEquivalent(with: event)
+    }
 }
 
 /// Owns the panel, keeps it pinned to the notch, and decides when it opens/closes
