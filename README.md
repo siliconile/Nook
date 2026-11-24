@@ -119,6 +119,14 @@ so permissions survive rebuilds. If a permission ever looks "on" but doesn't wor
 (e.g. after changing the bundle identifier), remove Nook from that list in
 **System Settings → Privacy & Security** and grant it again.
 
+## Troubleshooting
+
+- **Nook stopped responding** — it's a menu-bar app, so it doesn't appear in
+  *Force Quit Applications*. Quit it from **Activity Monitor** (search "Nook" → ✕), or run
+  `pkill -x Nook`, then open it again.
+- **A permission looks enabled but the feature doesn't work** — remove Nook from that list in
+  **System Settings → Privacy & Security** and grant it again.
+
 ## How it works
 
 - **Notch window** — a borderless, non-activating `NSPanel` above the menu bar on every

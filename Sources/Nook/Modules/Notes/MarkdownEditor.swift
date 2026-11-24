@@ -41,8 +41,12 @@ struct MarkdownEditor: NSViewRepresentable {
         tv.insertionPointColor = .white
         tv.selectedTextAttributes = [.backgroundColor: NSColor.white.withAlphaComponent(0.22)]
         tv.typingAttributes = MarkdownStyler.baseAttributes
+        // Lay out only what's visible; full layout of long text froze the app.
+        tv.layoutManager?.allowsNonContiguousLayout = true
         tv.string = text
         MarkdownStyler.apply(to: tv)
+        // Restyle incrementally (only the edited paragraphs) from now on.
+        tv.textStorage?.delegate = context.coordinator
 
         scroll.documentView = tv
         context.coordinator.textView = tv
@@ -64,7 +68,7 @@ struct MarkdownEditor: NSViewRepresentable {
         context.coordinator.reportHeight()
     }
 
-    final class Coordinator: NSObject, NSTextViewDelegate {
+    final class Coordinator: NSObject, NSTextViewDelegate, NSTextStorageDelegate {
         var parent: MarkdownEditor
         weak var textView: MarkdownTextView?
         private var lastHeight: CGFloat = -1
@@ -73,17 +77,44 @@ struct MarkdownEditor: NSViewRepresentable {
 
         func textDidChange(_ notification: Notification) {
             guard let tv = textView else { return }
-            MarkdownStyler.apply(to: tv)
+            tv.typingAttributes = MarkdownStyler.baseAttributes
             parent.text = tv.string
             reportHeight()
         }
 
+        /// Style just the paragraphs touched by an edit (typing, paste, undo).
+        func textStorage(_ textStorage: NSTextStorage, didProcessEditing editedMask: NSTextStorageEditActions,
+                         range editedRange: NSRange, changeInLength delta: Int) {
+            guard editedMask.contains(.editedCharacters) else { return }
+            let s = textStorage.string as NSString
+            let range = s.paragraphRange(for: NSIntersectionRange(editedRange, NSRange(location: 0, length: s.length)))
+            MarkdownStyler.style(textStorage, in: range, wrapInEditing: false)
+        }
+
         @objc func frameChanged() { reportHeight() }
+
+        /// Text taller than this always fills the notch to its maximum height.
+        private static let tallEnough: CGFloat = 600
 
         func reportHeight() {
             guard let tv = textView, let lm = tv.layoutManager, let tc = tv.textContainer else { return }
-            lm.ensureLayout(for: tc)
-            let h = ceil(lm.usedRect(for: tc).height + tv.textContainerInset.height * 2)
+            // Cheap estimate first: never lay out a long document just to learn it's tall.
+            let s = tv.string as NSString
+            let width = max(100, tc.size.width)
+            let charsPerLine = max(20, width / (MarkdownStyler.fontSize * 0.5))
+            var estimatedLines = 0
+            s.enumerateSubstrings(in: NSRange(location: 0, length: s.length),
+                                  options: [.byParagraphs, .substringNotRequired]) { _, r, _, stop in
+                estimatedLines += max(1, Int(ceil(Double(r.length) / Double(charsPerLine))))
+                if CGFloat(estimatedLines) * 18 > Self.tallEnough { stop.pointee = true }
+            }
+            let h: CGFloat
+            if CGFloat(estimatedLines) * 18 > Self.tallEnough {
+                h = Self.tallEnough
+            } else {
+                lm.ensureLayout(for: tc) // short text: exact and fast
+                h = ceil(lm.usedRect(for: tc).height + tv.textContainerInset.height * 2)
+            }
             guard abs(h - lastHeight) > 0.5 else { return }
             lastHeight = h
             let report = parent.onHeightChange
@@ -153,9 +184,17 @@ enum MarkdownStyler {
     /// Re-styles the whole document (attributes only; text and selection are untouched).
     static func apply(to tv: NSTextView) {
         guard let ts = tv.textStorage else { return }
+        style(ts, in: NSRange(location: 0, length: ts.length), wrapInEditing: true)
+        tv.typingAttributes = baseAttributes
+    }
+
+    /// Styles `range` (whole paragraphs). `wrapInEditing` is false when called from the
+    /// text storage's own processEditing, where only attribute changes are allowed.
+    static func style(_ ts: NSTextStorage, in range: NSRange, wrapInEditing: Bool) {
         let s = ts.string as NSString
-        let full = NSRange(location: 0, length: s.length)
-        ts.beginEditing()
+        let full = NSIntersectionRange(range, NSRange(location: 0, length: s.length))
+        guard full.length > 0 else { return }
+        if wrapInEditing { ts.beginEditing() }
         ts.setAttributes(baseAttributes, range: full)
 
         heading.enumerateMatches(in: ts.string, range: full) { m, _, _ in
@@ -217,8 +256,7 @@ enum MarkdownStyler {
             ts.addAttribute(.foregroundColor, value: syntaxColor, range: m.range)
             ts.addAttribute(.foregroundColor, value: linkColor, range: m.range(at: 1))
         }
-        ts.endEditing()
-        tv.typingAttributes = baseAttributes
+        if wrapInEditing { ts.endEditing() }
     }
 
     private static func addTrait(_ trait: NSFontTraitMask, _ ts: NSTextStorage, _ range: NSRange) {
