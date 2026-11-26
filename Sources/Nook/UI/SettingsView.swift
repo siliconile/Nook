@@ -10,6 +10,7 @@ struct SettingsView: View {
     @AppStorage(Pref.tasks) private var tasks = true
     @AppStorage(Pref.notes) private var notes = true
     @AppStorage(Pref.shelf) private var shelf = true
+    @AppStorage(Pref.usage) private var usage = true
     @AppStorage(Pref.openMode) private var openMode = OpenMode.hover.rawValue
     @AppStorage(Pref.defaultTab) private var defaultTab = NookTab.home.rawValue
     @AppStorage(Pref.hoverDelay) private var hoverDelay = 0.0
@@ -51,6 +52,7 @@ struct SettingsView: View {
                 Toggle("Tasks", isOn: $tasks)
                 Toggle("Notes", isOn: $notes)
                 Toggle("Shelf", isOn: $shelf)
+                Toggle("AI Usage (Claude, Codex, Antigravity)", isOn: $usage)
             }
             Section {
                 Toggle("Replace volume & brightness HUD", isOn: $hud)

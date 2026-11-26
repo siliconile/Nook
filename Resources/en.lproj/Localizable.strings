@@ -108,3 +108,15 @@
 "You're up to date" = "You're up to date";
 "item" = "item";
 "items" = "items";
+"AI Usage" = "AI Usage";
+"5 hours" = "5 hours";
+"Week" = "Week";
+"Not started" = "Not started";
+"Use the codex CLI to see usage" = "Use the codex CLI to see usage";
+"No usage recorded yet" = "No usage recorded yet";
+"Sign in with the claude CLI to see usage" = "Sign in with the claude CLI to see usage";
+"Session expired — run claude once to refresh" = "Session expired — run claude once to refresh";
+"Couldn't load usage" = "Couldn't load usage";
+"AI Usage (Claude, Codex, Antigravity)" = "AI Usage (Claude, Codex, Antigravity)";
+"Install the agy CLI to see usage" = "Install the agy CLI to see usage";
+"Sign in with the agy CLI to see usage" = "Sign in with the agy CLI to see usage";

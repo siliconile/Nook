@@ -6,6 +6,20 @@ All notable changes to Nook are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-26
+
+### Added
+- **AI Usage** tab: 5-hour and weekly limits with the next reset for Claude Code, Codex and
+  Antigravity (Gemini and Claude & GPT groups). Codex is read from its local session logs,
+  Claude from the Claude Code CLI login, Antigravity from `agy /usage`.
+- Homebrew: `brew install --cask siliconile/tap/nook-notch` (clears the quarantine flag,
+  so the first launch isn't blocked).
+
+### Changed
+- Shelf and AI Usage tabs moved to the right, beside Settings, so no tab hides behind the
+  hardware notch.
+- Removed the blur around the open notch.
+
 ## [0.2.1] - 2026-11-24
 
 ### Fixed

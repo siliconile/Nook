@@ -69,6 +69,17 @@ nothing is playing, per-module toggles, timer lengths, low-battery threshold.
 
 ## Install
 
+### Homebrew
+
+```bash
+brew install --cask siliconile/tap/nook-notch
+```
+
+The cask clears the quarantine flag after installing, so Nook opens without the
+"Apple could not verify" prompt. Update with `brew upgrade --cask nook-notch`.
+
+### Manual
+
 1. Download **Nook-x.y.z.zip** from the [latest release](https://github.com/siliconile/Nook/releases/latest) and unzip it.
 2. Move **Nook.app** to **Applications** and open it.
 3. Nook isn't notarized by Apple yet, so the first launch is blocked. Open

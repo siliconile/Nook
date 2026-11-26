@@ -108,3 +108,15 @@
 "You're up to date" = "لديك أحدث إصدار";
 "item" = "عنصر";
 "items" = "عناصر";
+"AI Usage" = "استخدام الذكاء الاصطناعي";
+"5 hours" = "٥ ساعات";
+"Week" = "الأسبوع";
+"Not started" = "لم يبدأ";
+"Use the codex CLI to see usage" = "استخدم codex CLI لعرض الاستخدام";
+"No usage recorded yet" = "لا يوجد استخدام مسجّل بعد";
+"Sign in with the claude CLI to see usage" = "سجّل الدخول عبر claude CLI لعرض الاستخدام";
+"Session expired — run claude once to refresh" = "انتهت الجلسة — شغّل claude مرة لتحديثها";
+"Couldn't load usage" = "تعذّر تحميل الاستخدام";
+"AI Usage (Claude, Codex, Antigravity)" = "استخدام الذكاء الاصطناعي (Claude وCodex وAntigravity)";
+"Install the agy CLI to see usage" = "ثبّت agy CLI لعرض الاستخدام";
+"Sign in with the agy CLI to see usage" = "سجّل الدخول عبر agy CLI لعرض الاستخدام";

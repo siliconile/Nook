@@ -2,8 +2,11 @@ import SwiftUI
 
 /// Tabs shown when the notch is expanded.
 enum NookTab: String, CaseIterable, Identifiable {
-    case home, tasks, notes, reminders, pomodoro, shelf
+    case home, tasks, notes, reminders, pomodoro, shelf, usage
     var id: String { rawValue }
+
+    /// Tabs shown on the right of the hardware notch, beside Settings.
+    static let trailing: [NookTab] = [.shelf, .usage]
 
     var title: String {
         switch self {
@@ -13,6 +16,7 @@ enum NookTab: String, CaseIterable, Identifiable {
         case .reminders: String(localized: "Reminders")
         case .pomodoro: String(localized: "Focus")
         case .shelf: String(localized: "Shelf")
+        case .usage: String(localized: "AI Usage")
         }
     }
 
@@ -24,6 +28,7 @@ enum NookTab: String, CaseIterable, Identifiable {
         case .reminders: "list.bullet.circle"
         case .pomodoro: "timer"
         case .shelf: "tray.full"
+        case .usage: "gauge.with.dots.needle.50percent"
         }
     }
 
@@ -36,6 +41,7 @@ enum NookTab: String, CaseIterable, Identifiable {
         case .reminders: Pref.reminders
         case .pomodoro: Pref.pomodoro
         case .shelf: Pref.shelf
+        case .usage: Pref.usage
         }
     }
 }
@@ -107,6 +113,8 @@ final class NookState: ObservableObject {
             // Real laid-out height reported by the editor (min 4 lines) + card padding.
             let text = max(NookState.ListMetrics.noteLineHeight * 4, NotesStore.shared.contentHeight)
             content = text + 20 + M.gap + M.footerHeight
+        case .usage:
+            content = UsageView.contentHeight(rows: UsageStore.shared.rows.count)
         default:
             content = 0
         }

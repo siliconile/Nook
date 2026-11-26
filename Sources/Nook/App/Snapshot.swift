@@ -45,7 +45,8 @@ enum Snapshot {
         // Let the real Now Playing pipeline run briefly so `open-home` shows live data.
         NowPlayingModel.shared.start()
         RemindersModel.shared.start() // read-only fetch, so list heights can be checked
-        RunLoop.main.run(until: Date().addingTimeInterval(3))
+        UsageStore.shared.refresh()
+        RunLoop.main.run(until: Date().addingTimeInterval(6))
         state.isOpen = true
         render("open-home-live")
         NowPlayingModel.shared.stop()

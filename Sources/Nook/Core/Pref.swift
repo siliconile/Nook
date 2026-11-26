@@ -10,6 +10,7 @@ enum Pref {
     static let tasks = "module.tasks"
     static let notes = "module.notes"
     static let shelf = "module.shelf"
+    static let usage = "module.usage"
 
     static let openMode = "openMode"                  // OpenMode raw value
     static let defaultTab = "defaultTab"              // NookTab raw value shown when nothing plays
@@ -38,7 +39,7 @@ enum Pref {
     static func registerDefaults() {
         UserDefaults.standard.register(defaults: [
             nowPlaying: true, hud: false, battery: true, pomodoro: true,
-            reminders: true, tasks: true, notes: true, shelf: true,
+            reminders: true, tasks: true, notes: true, shelf: true, usage: true,
             openMode: OpenMode.hover.rawValue, hoverDelay: 0.0, defaultTab: "home",
             focusMinutes: 25, breakMinutes: 5, longBreakMinutes: 15, sessionsBeforeLong: 4,
             lowBatteryThreshold: 20, autoUpdateCheck: true,

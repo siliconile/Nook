@@ -11,6 +11,7 @@ struct NotchRootView: View {
     @ObservedObject private var tasks = TasksStore.shared
     @ObservedObject private var reminders = RemindersModel.shared
     @ObservedObject private var notes = NotesStore.shared
+    @ObservedObject private var usage = UsageStore.shared
 
     var body: some View {
         // Closed outline (hardware notch + optional wings), slightly larger on hover.
@@ -20,19 +21,6 @@ struct NotchRootView: View {
         let silhouette = NotchSilhouette(progress: progress, closedSize: closed, openSize: open)
 
         ZStack(alignment: .top) {
-            // Feathered blur of the desktop around the open notch.
-            (Snapshot.isRendering ? AnyView(Color.clear) : AnyView(BackdropBlur()))
-                .mask(
-                    // Static mask (full open size): re-blurring a changing mask every
-                    // frame made the animation stutter. Only the opacity animates.
-                    NotchSilhouette(progress: 1, closedSize: closed, openSize: open, outset: Theme.blurOutset)
-                        .fill(Color.white)
-                        .blur(radius: Theme.blurFeather)
-                        .drawingGroup()
-                )
-                .opacity(state.isOpen ? Theme.blurStrength : 0)
-                .animation(state.isOpen ? Theme.contentIn : .easeOut(duration: 0.15), value: state.isOpen)
-
             // Notch + its content, scaled together on hover (grows left, right and down).
             ZStack(alignment: .top) {
             silhouette
@@ -239,10 +227,12 @@ struct ExpandedView: View {
             // Top strip (hardware-notch height): all tabs left of the notch, settings right.
             HStack(spacing: 0) {
                 HStack(spacing: 1) {
-                    ForEach(state.enabledTabs) { tab in TabButton(tab: tab) }
+                    ForEach(state.enabledTabs.filter { !NookTab.trailing.contains($0) }) { tab in TabButton(tab: tab) }
                 }
                 Spacer(minLength: state.notchSize.width + 8)
                 HStack(spacing: 1) {
+                    // Shelf and Usage sit beside Settings so the left side clears the hardware notch.
+                    ForEach(state.enabledTabs.filter { NookTab.trailing.contains($0) }) { tab in TabButton(tab: tab) }
                     IconButton(symbol: "gearshape", size: 12, frame: 22, tint: Theme.tertiaryText, help: String(localized: "Settings")) {
                         AppDelegate.shared?.openSettings()
                     }
@@ -260,6 +250,7 @@ struct ExpandedView: View {
                 case .reminders: RemindersView()
                 case .pomodoro: PomodoroView()
                 case .shelf: ShelfView()
+                case .usage: UsageView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

@@ -33,6 +33,12 @@ jobs:
           cat > notes.md <<'NOTES'
           ## Install
 
+          ```bash
+          brew install --cask siliconile/tap/nook-notch
+          ```
+
+          Or manually:
+
           1. Download **Nook-<version>.zip** below and unzip it.
           2. Move **Nook.app** to **Applications**.
           3. Open it. Nook isn't notarized yet, so macOS will block the first launch:
