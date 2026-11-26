@@ -57,6 +57,8 @@ static void emit(void) {
                     @"kMRMediaRemoteNowPlayingInfoElapsedTime": @"elapsed",
                     @"kMRMediaRemoteNowPlayingInfoPlaybackRate": @"rate",
                     @"kMRMediaRemoteNowPlayingInfoTimestamp": @"timestamp",
+                    @"kMRMediaRemoteNowPlayingInfoShuffleMode": @"shuffle",
+                    @"kMRMediaRemoteNowPlayingInfoRepeatMode": @"repeat",
                 };
                 for (NSString *k in map) { id v = jsonSafe(info[k]); if (v) out[map[k]] = v; }
                 // Only send artwork when the track changes (it is large).

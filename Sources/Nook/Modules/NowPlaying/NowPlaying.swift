@@ -15,6 +15,19 @@ final class NowPlayingModel: ObservableObject {
     @Published var duration: TimeInterval = 0
     @Published var elapsed: TimeInterval = 0
     @Published var sourceBundleID: String?
+    /// MediaRemote modes (0 unknown, 1 off, 2 one / albums, 3 all / songs); nil when the
+    /// player doesn't support them (e.g. web players in a browser).
+    @Published private(set) var shuffleMode: Int?
+    @Published private(set) var repeatMode: Int?
+
+    enum RepeatState { case off, one, all }
+
+    var supportsShuffle: Bool { (shuffleMode ?? 0) != 0 }
+    var supportsRepeat: Bool { (repeatMode ?? 0) != 0 }
+    var shuffleOn: Bool { (shuffleMode ?? 1) > 1 }
+    var repeatState: RepeatState {
+        switch repeatMode { case 2: .one; case 3: .all; default: .off }
+    }
 
     @Published private(set) var artworkTint: Color = .white
     @Published private(set) var lastElapsedUpdate: Date = Date()
@@ -142,6 +155,25 @@ final class NowPlayingModel: ObservableObject {
         scheduleQuickPoll()
     }
 
+    func toggleShuffle() {
+        guard supportsShuffle else { return }
+        shuffleMode = shuffleOn ? 1 : 3 // optimistic; the next update confirms
+        sendMR(6)
+        scheduleQuickPoll()
+    }
+
+    /// Cycles off → all → one → off.
+    func cycleRepeat() {
+        guard supportsRepeat else { return }
+        switch repeatState {
+        case .off: repeatMode = 3
+        case .all: repeatMode = 2
+        case .one: repeatMode = 1
+        }
+        sendMR(7)
+        scheduleQuickPoll()
+    }
+
     private func sendMR(_ command: Int) {
         if bridge.isRunning {
             MediaBridge.send(command: command)
@@ -159,6 +191,8 @@ final class NowPlayingModel: ObservableObject {
         }
         activeSource = .mediaRemote
         if sourceBundleID != u.bundleID { sourceBundleID = u.bundleID }
+        if shuffleMode != u.shuffleMode { shuffleMode = u.shuffleMode }
+        if repeatMode != u.repeatMode { repeatMode = u.repeatMode }
         let rate = u.rate > 0 ? u.rate : (u.isPlaying ? 1 : 0)
         var e = u.elapsed
         if let ts = u.timestamp, u.isPlaying { e += max(0, Date().timeIntervalSince(ts)) * rate }
@@ -260,6 +294,10 @@ final class NowPlayingModel: ObservableObject {
         let newTitle = (info["kMRMediaRemoteNowPlayingInfoTitle"] as? String) ?? ""
         let newArtist = (info["kMRMediaRemoteNowPlayingInfoArtist"] as? String) ?? ""
         let newAlbum = (info["kMRMediaRemoteNowPlayingInfoAlbum"] as? String) ?? ""
+        let newShuffle = (info["kMRMediaRemoteNowPlayingInfoShuffleMode"] as? NSNumber)?.intValue
+        let newRepeat = (info["kMRMediaRemoteNowPlayingInfoRepeatMode"] as? NSNumber)?.intValue
+        if shuffleMode != newShuffle { shuffleMode = newShuffle }
+        if repeatMode != newRepeat { repeatMode = newRepeat }
         let newDuration = max(0, (info["kMRMediaRemoteNowPlayingInfoDuration"] as? NSNumber)?.doubleValue ?? 0)
         let rawElapsed = max(0, (info["kMRMediaRemoteNowPlayingInfoElapsedTime"] as? NSNumber)?.doubleValue ?? 0)
         let rateNumber = (info["kMRMediaRemoteNowPlayingInfoPlaybackRate"] as? NSNumber)?.doubleValue
@@ -484,6 +522,8 @@ final class NowPlayingModel: ObservableObject {
 
     private func applyScriptResult(_ result: ScriptPollResult) {
         activeSource = .appleScript(bundleID: result.bundleID)
+        if shuffleMode != nil { shuffleMode = nil }
+        if repeatMode != nil { repeatMode = nil }
         if sourceBundleID != result.bundleID {
             sourceBundleID = result.bundleID
         }
@@ -576,6 +616,8 @@ final class NowPlayingModel: ObservableObject {
         if duration != 0 { duration = 0 }
         if elapsed != 0 { elapsed = 0 }
         if sourceBundleID != nil { sourceBundleID = nil }
+        if shuffleMode != nil { shuffleMode = nil }
+        if repeatMode != nil { repeatMode = nil }
         if artwork != nil {
             currentArtworkKey = ""
             updateArtwork(nil)
@@ -682,7 +724,7 @@ struct NowPlayingView: View {
                                 }
                         }
                         .frame(height: 4)
-                        Text("-\(Self.formatTime(max(0, total - current)))")
+                        Text(Self.formatTime(total))
                             .frame(width: 38, alignment: .trailing)
                     }
                     .font(Theme.mono)
@@ -691,18 +733,38 @@ struct NowPlayingView: View {
                 .frame(height: 14)
                 .padding(.top, 10)
 
-                // Transport row
-                HStack(spacing: 28) {
-                    IconButton(symbol: "backward.fill", size: 17, frame: 34, help: String(localized: "Previous")) { model.previous() }
-                    IconButton(symbol: model.isPlaying ? "pause.fill" : "play.fill", size: 22, frame: 36,
+                // Transport row: shuffle · previous · play/pause · next · repeat
+                HStack(spacing: 0) {
+                    ModeButton(symbol: "shuffle", on: model.shuffleOn, enabled: model.supportsShuffle,
+                               help: model.supportsShuffle ? String(localized: "Shuffle") : unsupportedHelp) {
+                        model.toggleShuffle()
+                    }
+                    Spacer(minLength: 0)
+                    IconButton(symbol: "backward.fill", size: 18, frame: 36, help: String(localized: "Previous")) { model.previous() }
+                    Spacer(minLength: 0)
+                    IconButton(symbol: model.isPlaying ? "pause.fill" : "play.fill", size: 24, frame: 40,
                                help: model.isPlaying ? String(localized: "Pause") : String(localized: "Play")) { model.playPause() }
-                    IconButton(symbol: "forward.fill", size: 17, frame: 34, help: String(localized: "Next")) { model.next() }
+                    Spacer(minLength: 0)
+                    IconButton(symbol: "forward.fill", size: 18, frame: 36, help: String(localized: "Next")) { model.next() }
+                    Spacer(minLength: 0)
+                    ModeButton(symbol: model.repeatState == .one ? "repeat.1" : "repeat",
+                               on: model.repeatState != .off, enabled: model.supportsRepeat,
+                               help: model.supportsRepeat ? String(localized: "Repeat") : unsupportedHelp) {
+                        model.cycleRepeat()
+                    }
                 }
-                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 2)
                 .padding(.top, 4)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
+    }
+
+    private var unsupportedHelp: String {
+        let app = model.sourceBundleID
+            .flatMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }
+            .map { FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "") }
+        return app.map { String(localized: "\($0) doesn't support this") } ?? String(localized: "Not supported by this player")
     }
 
     private func openSourceApp() {
@@ -761,6 +823,36 @@ struct NowPlayingView: View {
         let mins = totalSeconds / 60
         let secs = totalSeconds % 60
         return String(format: "%d:%02d", mins, secs)
+    }
+}
+
+/// Shuffle / repeat: tinted with a dot when on, dimmed when the player can't do it.
+private struct ModeButton: View {
+    let symbol: String
+    let on: Bool
+    let enabled: Bool
+    let help: String
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(on ? Color.accentColor : (hover && enabled ? Theme.primary : Theme.secondaryText))
+                .frame(width: 32, height: 32)
+                .overlay(alignment: .bottom) {
+                    if on { Circle().fill(Color.accentColor).frame(width: 3, height: 3).offset(y: -2) }
+                }
+                .background(hover && enabled ? Theme.fillStrong : .clear, in: RoundedRectangle(cornerRadius: Theme.controlRadius))
+                .contentShape(Rectangle())
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.3)
+        .onHover { hover = $0 }
+        .help(help)
     }
 }
 

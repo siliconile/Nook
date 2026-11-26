@@ -124,6 +124,31 @@ final class PomodoroModel: ObservableObject {
         isRunning = false
     }
 
+    /// Length of the current phase in whole minutes (what the wheel shows while idle).
+    var selectedMinutes: Int { Int(duration(for: phase) / 60) }
+
+    /// True before the phase has been started (or after a reset): the wheel can edit it.
+    var canEditDuration: Bool { !isRunning }
+
+    /// Wheel: sets the current phase's length (saved like the Settings steppers) and
+    /// resets it. Ignored while the timer runs.
+    func setMinutes(_ minutes: Int) {
+        guard !isRunning else { return }
+        let m = min(Self.wheelRange.upperBound, max(Self.wheelRange.lowerBound, minutes))
+        let key: String
+        switch phase {
+        case .focus: key = Pref.focusMinutes
+        case .shortBreak: key = Pref.breakMinutes
+        case .longBreak: key = Pref.longBreakMinutes
+        }
+        endDate = nil
+        isIdle = true
+        if UserDefaults.standard.integer(forKey: key) != m { UserDefaults.standard.set(m, forKey: key) }
+        remaining = TimeInterval(m * 60)
+    }
+
+    static let wheelRange = 1...120
+
     // MARK: - Internals
 
     private func duration(for phase: PomodoroPhase) -> TimeInterval {
@@ -195,113 +220,84 @@ final class PomodoroModel: ObservableObject {
     }
 }
 
+/// Focus timer: a ruler wheel of minutes (scroll or drag to set), the time, and controls.
 struct PomodoroView: View {
     @ObservedObject private var model = PomodoroModel.shared
 
     var body: some View {
-        HStack(alignment: .center, spacing: 28) {
-            ring
-            controls
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-    }
+        VStack(spacing: 10) {
+            WheelPicker(
+                value: model.selectedMinutes, range: PomodoroModel.wheelRange, tint: model.phase.tint,
+                enabled: model.canEditDuration, displayValue: rulerFollowsCountdown ? model.remaining / 60 : nil,
+                label: { "\($0)" }, onCommit: { model.setMinutes($0) })
+            .frame(height: 64)
+            .background(Theme.fill, in: RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.cardRadius, style: .continuous))
+            .help(model.canEditDuration ? String(localized: "Scroll to set the time") : "")
 
-    // MARK: - Ring
-
-    private var ring: some View {
-        ZStack {
-            Circle()
-                .stroke(Theme.fill, lineWidth: 6)
-            Circle()
-                .trim(from: 0, to: max(0.003, model.progress))
-                .stroke(
-                    model.phase.tint,
-                    style: StrokeStyle(lineWidth: 6, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .animation(.linear(duration: 0.3), value: model.progress)
-            VStack(spacing: 2) {
+            HStack(alignment: .center, spacing: 8) {
+                primaryButton
+                if !model.isRunning && model.remaining < Double(model.selectedMinutes * 60) {
+                    IconButton(symbol: "arrow.counterclockwise", size: 12, frame: 30, tint: Theme.secondaryText,
+                               help: String(localized: "Reset")) { model.reset() }
+                }
+                phaseMenu
+                Spacer(minLength: 0)
                 Text(model.remainingText)
-                    .font(.system(size: 26, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(Theme.primary)
+                    .font(.system(size: 40, weight: .light, design: .rounded).monospacedDigit())
+                    .foregroundStyle(model.phase.tint)
+                    .contentTransition(.numericText(countsDown: true))
+                    .animation(.snappy(duration: 0.2), value: model.remainingText)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .padding(.horizontal, Theme.spacing)
-                Text(model.phase.title)
-                    .font(Theme.caption)
-                    .foregroundStyle(Theme.secondaryText)
+                    .fixedSize()
             }
         }
-        .frame(width: 104, height: 104)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
-    // MARK: - Controls
+    /// Running or paused: the ruler follows the remaining time.
+    private var rulerFollowsCountdown: Bool {
+        model.isRunning || model.remaining < Double(model.selectedMinutes * 60) - 0.5
+    }
 
-    private var controls: some View {
-        VStack(alignment: .leading, spacing: Theme.spacing) {
-            // Phase picker.
-            HStack(spacing: Theme.smallSpacing) {
-                ForEach(PomodoroPhase.allCases, id: \.rawValue) { phase in
-                    Button { model.select(phase) } label: {
-                        Text(phase.shortTitle)
-                            .font(Theme.caption)
-                            .foregroundStyle(model.phase == phase ? Theme.primary : Theme.secondaryText)
-                            .padding(.horizontal, Theme.spacing)
-                            .frame(height: 24)
-                            .background(
-                                model.phase == phase ? Theme.fillStrong : Theme.fill,
-                                in: Capsule()
-                            )
-                            .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            // Session dots for the current cycle.
-            HStack(spacing: Theme.smallSpacing) {
-                ForEach(0..<model.sessionsBeforeLong, id: \.self) { index in
-                    Capsule()
-                        .fill(index < model.completedFocusSessions
-                              ? Color.orange
-                              : Theme.fillStrong)
-                        .frame(width: 14, height: 4)
-                }
-            }
-
-            // Transport buttons.
-            HStack(spacing: Theme.spacing) {
-                Button { model.isRunning ? model.pause() : model.start() } label: {
-                    Image(systemName: model.isRunning ? "pause.fill" : "play.fill")
-                        .font(.system(size: Theme.rowIcon, weight: .semibold))
-                        .foregroundStyle(model.phase.tint)
-                        .frame(width: 36, height: 36)
-                        .background(model.phase.tint.opacity(0.2), in: Circle())
-                        .contentShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .help(model.isRunning ? String(localized: "Pause") : String(localized: "Start"))
-
-                IconButton(
-                    symbol: "arrow.counterclockwise",
-                    size: Theme.rowIcon,
-                    frame: 32,
-                    tint: Theme.secondaryText,
-                    help: String(localized: "Reset")
-                ) {
-                    model.reset()
-                }
-
-                IconButton(
-                    symbol: "forward.end.fill",
-                    size: Theme.rowIcon,
-                    frame: 32,
-                    tint: Theme.secondaryText,
-                    help: String(localized: "Skip phase")
-                ) {
-                    model.skip()
-                }
-            }
+    private var primaryButton: some View {
+        let running = model.isRunning
+        let paused = !running && model.remaining < Double(model.selectedMinutes * 60)
+        let title = running ? String(localized: "Pause") : paused ? String(localized: "Resume") : String(localized: "Start Timer")
+        return Button { running ? model.pause() : model.start() } label: {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(model.phase.tint)
+                .padding(.horizontal, 14)
+                .frame(height: 30)
+                .background(model.phase.tint.opacity(0.18), in: Capsule())
+                .contentShape(Capsule())
         }
+        .buttonStyle(.plain)
     }
+
+    /// Phase chip: click to cycle Focus → Short → Long.
+    private var phaseMenu: some View {
+        Button {
+            let all = PomodoroPhase.allCases
+            let next = all[(all.firstIndex(of: model.phase)! + 1) % all.count]
+            model.select(next)
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: model.phase.symbol).font(.system(size: 10, weight: .semibold))
+                Text(model.phase.shortTitle)
+            }
+            .font(Theme.caption)
+            .foregroundStyle(Theme.secondaryText)
+            .padding(.horizontal, 10)
+            .frame(height: 30)
+            .background(Theme.fill, in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(model.isRunning)
+        .opacity(model.isRunning ? 0.4 : 1)
+        .help(String(localized: "Switch phase"))
+    }
+
 }

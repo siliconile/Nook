@@ -6,6 +6,27 @@ All notable changes to Nook are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-26
+
+### Added
+- **Reminders, time-first**: add a reminder with a time in one step (In 15 min, In 1 hour,
+  Tonight, Tomorrow 9, or a time wheel), a **Next** card with a live countdown, Done and
+  Snooze (+10m, +1h, Tomorrow), an agenda grouped Overdue / Today / Upcoming / Anytime, and
+  a bell in the closed notch when a reminder is due (click it to open Reminders). Timed
+  reminders get an alarm, so Reminders on your other devices notify too.
+- **Focus timer wheel**: scroll, swipe or drag a minute ruler to set the time.
+- **Shuffle and repeat** in the player, for apps that report them (Music, Spotify);
+  dimmed for players that don't, such as web players in a browser.
+
+### Changed
+- Tabs moved to a floating bar under the notch; the selected tab shows its name, and the
+  bar grows out from the centre as the notch opens.
+- The player shows the track length instead of the time left.
+
+### Fixed
+- The notch no longer closes when switching to a shorter tab moves the tab bar away from
+  the pointer.
+
 ## [0.3.1] - 2026-11-26
 
 ### Added

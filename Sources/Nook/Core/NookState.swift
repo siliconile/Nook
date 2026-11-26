@@ -5,9 +5,6 @@ enum NookTab: String, CaseIterable, Identifiable {
     case home, tasks, notes, reminders, pomodoro, shelf, usage
     var id: String { rawValue }
 
-    /// Tabs shown on the right of the hardware notch, beside Settings.
-    static let trailing: [NookTab] = [.shelf, .usage]
-
     var title: String {
         switch self {
         case .home: String(localized: "Now Playing")
@@ -79,6 +76,9 @@ final class NookState: ObservableObject {
     /// Base open size; list/notes tabs grow taller with their content (see `openSize`).
     static let openSize = CGSize(width: 500, height: 192)
     static let maxOpenHeight: CGFloat = 340
+    /// Floating tab bar under the open notch.
+    static let tabBarHeight: CGFloat = 36
+    static let tabBarGap: CGFloat = 8
 
     /// Shared list metrics, also used by module views so the computed height matches.
     enum ListMetrics {
@@ -108,7 +108,7 @@ final class NookState: ObservableObject {
             content = list(TasksStore.shared.items.count)
         case .reminders:
             content = RemindersModel.shared.authorizationStatus == .fullAccess
-                ? list(RemindersModel.shared.reminders.count) : 0
+                ? RemindersView.contentHeight(RemindersModel.shared) : 0
         case .notes:
             // Real laid-out height reported by the editor (min 4 lines) + card padding.
             let text = max(NookState.ListMetrics.noteLineHeight * 4, NotesStore.shared.contentHeight)
@@ -142,6 +142,9 @@ final class NookState: ObservableObject {
     func open(tab: NookTab? = nil) {
         if let tab {
             selectedTab = tab
+        } else if activity?.id == "reminder", enabledTabs.contains(.reminders) {
+            // Clicking a due-reminder alert opens Reminders (Done / Snooze on the Next card).
+            selectedTab = .reminders
         } else if !isOpen {
             selectedTab = defaultTab
         }
@@ -169,6 +172,14 @@ final class NookState: ObservableObject {
             return Self.compactSideWidth
         }
         return 0
+    }
+
+    /// Area that keeps the notch open under the pointer: the notch plus, while open,
+    /// the tab bar below it.
+    var interactiveSize: CGSize {
+        let size = contentSize
+        guard isOpen else { return size }
+        return CGSize(width: size.width, height: size.height + Self.tabBarGap + Self.tabBarHeight)
     }
 
     /// Size of the black notch shape for the current state (excluding shadow).

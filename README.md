@@ -26,14 +26,15 @@
 
 **The notch**
 - Hover (or click — your choice) the notch to open it; it grows evenly from the centre
-  with a soft spring and a feathered blur of the desktop around it.
+  with a soft spring; a floating tab bar slides out beneath it.
 - Closed "wings" beside the hardware notch show live activity: music, focus timer, alerts.
 - Works on Macs without a notch too (draws a menu-bar-height pill).
 - Hides automatically when a fullscreen app owns the screen.
 - Height adapts to content: Tasks, Reminders and Notes open taller as they fill up.
 
 **Now Playing**
-- Track, artist, artwork, progress and play / pause / previous / next.
+- Track, artist, artwork, progress, play / pause / previous / next, and shuffle / repeat
+  for players that support them (Music, Spotify).
 - Works with **any** player, including web players in browsers (e.g. Chrome),
   Music and Spotify. Click the artwork to jump to the player.
 - Compact wings while playing: artwork + animated equalizer tinted from the cover.
@@ -44,10 +45,13 @@
 
 **Battery** — charging and unplug alerts, low-battery warning at a threshold you choose.
 
-**Focus timer** — Pomodoro with focus / short / long breaks, session dots, a sound and a
-notch alert when a phase ends, and a progress ring in the closed notch while it runs.
+**Focus timer** — Pomodoro with focus / short / long breaks; scroll, swipe or drag a minute
+wheel to set the time. A sound and a notch alert when a phase ends, and a progress ring in
+the closed notch while it runs.
 
-**Reminders** — your iCloud Apple Reminders: add, complete, due dates (overdue in red), list colours.
+**Reminders** — your iCloud Apple Reminders, time-first: add with a time in one step (quick
+chips or a time wheel), a **Next** card with a countdown, Done and Snooze, an agenda by
+Overdue / Today / Upcoming / Anytime, and a bell in the closed notch when one is due.
 
 **Tasks** — fast local-first to-do list (saved to `~/Library/Application Support/Nook/tasks.json`).
 

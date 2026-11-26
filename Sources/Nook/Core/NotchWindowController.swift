@@ -63,11 +63,16 @@ final class NotchWindowController {
     /// from the menu bar item) moving elsewhere does not close it; a click outside does.
     private var pointerEnteredSinceOpen = false
     private var menuTracking = false
+    /// Last open area that contained the pointer. When the notch shrinks under a still
+    /// pointer (e.g. switching to a shorter tab moves the tab bar up), the pointer still
+    /// counts as inside until it leaves this area or enters the new, smaller one.
+    private var stickyRect: NSRect?
 
     /// Panel is bigger than the open notch so shadows/animations are not clipped.
     /// Room around the open notch for the shadow and the feathered backdrop blur.
     private let panelSize = CGSize(width: NookState.openSize.width + 2 * (Theme.blurOutset + Theme.blurFeather * 2),
-                                   height: NookState.maxOpenHeight + Theme.blurOutset + Theme.blurFeather * 2)
+                                   height: NookState.maxOpenHeight + NookState.tabBarGap + NookState.tabBarHeight
+                                       + Theme.blurOutset + Theme.blurFeather * 2)
 
     func start() {
         panel = NotchPanel(contentRect: NSRect(origin: .zero, size: panelSize))
@@ -134,7 +139,7 @@ final class NotchWindowController {
     /// Rect (screen coordinates) currently covered by the visible notch shape.
     private func activeRect(padding: CGFloat) -> NSRect {
         guard let screen = targetScreen else { return .zero }
-        let size = state.contentSize
+        let size = state.interactiveSize
         let f = screen.frame
         // Extends past the top edge so a pointer slammed against the screen edge
         // (y == maxY, which NSRect.contains excludes) still counts as inside.
@@ -145,7 +150,19 @@ final class NotchWindowController {
     private func handle(_ event: NSEvent) {
         guard !hiddenForFullscreen else { return }
         let p = NSEvent.mouseLocation
-        let inside = activeRect(padding: state.isOpen ? 12 : 6).contains(p)
+        let current = activeRect(padding: state.isOpen ? 12 : 6)
+        var inside = current.contains(p)
+        if state.isOpen {
+            if inside {
+                stickyRect = current
+            } else if let sticky = stickyRect, sticky.contains(p) {
+                inside = true
+            } else {
+                stickyRect = nil
+            }
+        } else {
+            stickyRect = nil
+        }
 
         switch event.type {
         case .leftMouseDragged:
@@ -243,6 +260,7 @@ final class NotchWindowController {
             // clicks inside it (e.g. into Notes), so most closes need no focus hand-back.
         } else {
             pointerEnteredSinceOpen = false
+            stickyRect = nil
             panel.makeFirstResponder(nil)
             guard panel.isKeyWindow else { return }
             // Give key status back, but only after the close animation has finished:

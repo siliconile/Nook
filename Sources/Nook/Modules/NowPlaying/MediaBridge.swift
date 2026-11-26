@@ -14,6 +14,10 @@ final class MediaBridge {
         var timestamp: Date?
         var isPlaying = false
         var bundleID: String?
+        /// MediaRemote shuffle / repeat modes; nil when the player doesn't report them
+        /// (browsers don't), which means the player can't be shuffled from here either.
+        var shuffleMode: Int?
+        var repeatMode: Int?
         /// Present only when the track (and therefore the artwork) changed.
         var artwork: Data?
     }
@@ -56,7 +60,8 @@ final class MediaBridge {
         isRunning = false
     }
 
-    /// MediaRemote command numbers: 2 toggle play/pause, 4 next, 5 previous.
+    /// MediaRemote command numbers: 2 toggle play/pause, 4 next, 5 previous,
+    /// 6 toggle shuffle, 7 toggle (cycle) repeat.
     nonisolated static func send(command: Int) {
         guard let dylib = dylibPath else { return }
         let p = Process()
@@ -142,6 +147,8 @@ final class MediaBridge {
         if let ts = (o["timestamp"] as? NSNumber)?.doubleValue { u.timestamp = Date(timeIntervalSince1970: ts) }
         u.isPlaying = (o["playing"] as? Bool) ?? (u.rate > 0.01)
         u.bundleID = o["bundle"] as? String
+        u.shuffleMode = (o["shuffle"] as? NSNumber)?.intValue
+        u.repeatMode = (o["repeat"] as? NSNumber)?.intValue
         if let b64 = o["artwork"] as? String { u.artwork = Data(base64Encoded: b64) }
         return u
     }

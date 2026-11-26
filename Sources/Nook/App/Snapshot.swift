@@ -54,6 +54,28 @@ enum Snapshot {
             state.selectedTab = tab
             render("open-\(tab.rawValue)")
         }
+        // Sample data when this process has no Reminders access, so the layout can be checked.
+        let rm = RemindersModel.shared
+        if !rm.isAuthorized {
+            let now = Date()
+            let cal = Calendar.current
+            rm.authorizationStatus = .fullAccess
+            rm.reminders = [
+                ReminderItem(id: "1", title: "Call the bank", dueDate: now.addingTimeInterval(-20 * 60), isOverdue: true, color: .red, listTitle: "Personal"),
+                ReminderItem(id: "2", title: "Standup notes", dueDate: now.addingTimeInterval(45 * 60), isOverdue: false, color: .blue, listTitle: "Work"),
+                ReminderItem(id: "3", title: "Pick up groceries", dueDate: now.addingTimeInterval(3 * 3600), isOverdue: false, color: .orange, listTitle: "Home"),
+                ReminderItem(id: "4", title: "Pay rent", dueDate: cal.date(byAdding: .day, value: 2, to: now), isOverdue: false, color: .green, listTitle: "Home"),
+                ReminderItem(id: "5", title: "Read the paper", dueDate: nil, isOverdue: false, color: .purple, listTitle: "Personal"),
+            ]
+            state.selectedTab = .reminders
+            render("open-reminders-sample")
+        }
+        state.selectedTab = .reminders
+        RemindersModel.shared.composer = .chips
+        render("open-reminders-chips")
+        RemindersModel.shared.composer = .picker
+        render("open-reminders-picker")
+        RemindersModel.shared.composer = .idle
         return true
     }
 }

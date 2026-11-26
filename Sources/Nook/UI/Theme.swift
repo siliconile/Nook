@@ -70,12 +70,40 @@ extension AnyTransition {
         )
     }
 
+    /// Tab bar under the notch: grows out from its centre and drops in slightly, quickly,
+    /// as soon as the notch starts opening. Removal is instant.
+    static var tabPill: AnyTransition {
+        .asymmetric(
+            insertion: .modifier(active: PillRevealModifier(progress: 0), identity: PillRevealModifier(progress: 1))
+                .animation(.spring(duration: 0.38, bounce: 0.18).delay(0.12)),
+            removal: .identity
+        )
+    }
+
     static var notchContent: AnyTransition {
         .asymmetric(
             insertion: .modifier(active: RevealModifier(progress: 0), identity: RevealModifier(progress: 1))
                 .animation(Theme.contentIn),
             removal: .identity
         )
+    }
+}
+
+private struct PillRevealModifier: ViewModifier {
+    var progress: Double
+    func body(content: Content) -> some View {
+        content
+            // Reveal from the centre outwards.
+            // Reveal from the centre outwards; the extra margin keeps the shadow visible.
+            .mask {
+                GeometryReader { g in
+                    Rectangle()
+                        .frame(width: max(g.size.height, g.size.width * progress) + 40, height: g.size.height + 40)
+                        .position(x: g.size.width / 2, y: g.size.height / 2)
+                }
+            }
+            .opacity(min(1, progress * 2))
+            .offset(y: (1 - progress) * -10)
     }
 }
 

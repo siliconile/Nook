@@ -52,11 +52,21 @@ struct NotchRootView: View {
             }
             .scaleEffect(state.isHovering && !state.isOpen ? Theme.hoverScale : 1, anchor: .top)
             .animation(Theme.hoverSpring, value: state.isHovering)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .contentShape(silhouette)
+            .modifier(ShelfDropTarget(enabled: !Snapshot.isRendering))
+
+            // Floating tab bar under the open notch. Appears right after the notch starts
+            // opening, growing out from the centre; removed instantly on close.
+            Group {
+                if state.isOpen {
+                    TabPill().transition(.tabPill)
+                }
+            }
+            .padding(.top, open.height + NookState.tabBarGap)
         }
         .animation(Theme.shapeSpring, value: open.height) // tab switch / content growth
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .contentShape(silhouette)
-        .modifier(ShelfDropTarget(enabled: !Snapshot.isRendering))
         .preferredColorScheme(.dark)
     }
 
@@ -218,21 +228,17 @@ private struct ProgressCapsule: View {
     }
 }
 
-/// Expanded notch: tabs live in the strip beside the hardware notch, module below.
+/// Expanded notch: settings in the strip beside the hardware notch, module below.
+/// Tabs live in the floating `TabPill` under the notch.
 struct ExpandedView: View {
     @EnvironmentObject var state: NookState
 
     var body: some View {
         VStack(spacing: 0) {
-            // Top strip (hardware-notch height): all tabs left of the notch, settings right.
+            // Top strip (hardware-notch height): settings on the right.
             HStack(spacing: 0) {
-                HStack(spacing: 1) {
-                    ForEach(state.enabledTabs.filter { !NookTab.trailing.contains($0) }) { tab in TabButton(tab: tab) }
-                }
                 Spacer(minLength: state.notchSize.width + 8)
                 HStack(spacing: 1) {
-                    // Shelf and Usage sit beside Settings so the left side clears the hardware notch.
-                    ForEach(state.enabledTabs.filter { NookTab.trailing.contains($0) }) { tab in TabButton(tab: tab) }
                     IconButton(symbol: "gearshape", size: 12, frame: 22, tint: Theme.tertiaryText, help: String(localized: "Settings")) {
                         AppDelegate.shared?.openSettings()
                     }
@@ -267,21 +273,64 @@ struct ExpandedView: View {
     }
 }
 
+/// Floating capsule of tabs. The selected tab shows its name; the highlight and the name
+/// slide between tabs.
+private struct TabPill: View {
+    @EnvironmentObject var state: NookState
+    @Namespace private var selection
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(state.enabledTabs) { tab in
+                TabButton(tab: tab, selection: selection)
+            }
+        }
+        .padding(4)
+        .background(Color.black, in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+        .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
+        .contentShape(Capsule())
+        .foregroundStyle(.white)
+        .frame(height: NookState.tabBarHeight)
+    }
+}
+
 private struct TabButton: View {
     @EnvironmentObject var state: NookState
     let tab: NookTab
+    let selection: Namespace.ID
     @State private var hover = false
 
     var body: some View {
         let selected = state.selectedTab == tab
-        Button { state.selectedTab = tab } label: {
-            Image(systemName: tab.symbol)
-                .font(.system(size: Theme.tabIcon, weight: .semibold))
-                .foregroundStyle(selected ? Theme.primary : (hover ? Theme.secondaryText : Theme.tertiaryText))
-                .frame(width: 20, height: 22)
-                .background(selected ? Theme.fillStrong : (hover ? Theme.fill : .clear),
-                            in: RoundedRectangle(cornerRadius: 7))
-                .contentShape(Rectangle())
+        Button {
+            withAnimation(.spring(duration: 0.35, bounce: 0.2)) { state.selectedTab = tab }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: tab.symbol)
+                    .font(.system(size: Theme.tabIcon, weight: .semibold))
+                if selected {
+                    Text(tab.title)
+                        .font(.system(size: 12, weight: .semibold))
+                        .lineLimit(1)
+                        .fixedSize()
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .move(edge: .leading)).animation(.easeOut(duration: 0.25).delay(0.05)),
+                            removal: .opacity.animation(.easeOut(duration: 0.08))))
+                }
+            }
+            .foregroundStyle(selected ? Theme.primary : (hover ? Theme.secondaryText : Theme.tertiaryText))
+            .padding(.horizontal, selected ? 12 : 8)
+            .frame(minWidth: 30, minHeight: NookState.tabBarHeight - 8)
+            .background {
+                if selected {
+                    Capsule().fill(Theme.fillStrong)
+                        .matchedGeometryEffect(id: "selected", in: selection)
+                } else if hover {
+                    Capsule().fill(Theme.fill)
+                }
+            }
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
