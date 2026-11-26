@@ -1,8 +1,8 @@
 import AppKit
 import Foundation
 
-/// Lightweight update checker: asks GitHub for the latest release and, if it's newer
-/// than the running version, offers to open its download page. No auto-install, no keys.
+/// Update checker: asks GitHub for the latest release and, if it's newer than the running
+/// version, offers to install it in place (see `UpdateInstaller`). No keys, no Sparkle.
 @MainActor
 final class Updater: ObservableObject {
     static let shared = Updater()
@@ -13,10 +13,14 @@ final class Updater: ObservableObject {
     struct Release: Equatable {
         let version: String
         let page: URL
+        /// Release assets: Nook-<version>.zip and its .sha256.
+        var zipURL: URL? = nil
+        var shaURL: URL? = nil
     }
 
     @Published private(set) var available: Release?
     @Published private(set) var isChecking = false
+    @Published private(set) var isInstalling = false
     @Published private(set) var lastChecked: Date?
 
     static var currentVersion: String {
@@ -65,12 +69,18 @@ final class Updater: ObservableObject {
             lastChecked = Date()
             let version = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
             if Self.isNewer(version, than: Self.currentVersion) {
-                let release = Release(version: version, page: page)
+                var release = Release(version: version, page: page)
+                for asset in json["assets"] as? [[String: Any]] ?? [] {
+                    guard let name = asset["name"] as? String,
+                          let url = (asset["browser_download_url"] as? String).flatMap(URL.init(string:)) else { continue }
+                    if name == "Nook-\(version).zip" { release.zipURL = url }
+                    if name == "Nook-\(version).zip.sha256" { release.shaURL = url }
+                }
                 let isNew = available != release
                 available = release
                 AppDelegate.shared?.updateMenuChanged()
                 if userInitiated {
-                    promptToDownload(release)
+                    promptToUpdate(release)
                 } else if isNew {
                     NookState.shared.show(NookActivity(
                         id: "update", symbol: "arrow.down.circle.fill", tint: .blue,
@@ -90,6 +100,27 @@ final class Updater: ObservableObject {
         NSWorkspace.shared.open(available?.page ?? Self.releasesPage)
     }
 
+    /// Installs the available update and relaunches. On failure Nook keeps running and
+    /// offers the download page instead.
+    func installAvailable() {
+        guard let release = available, !isInstalling else { return }
+        isInstalling = true
+        AppDelegate.shared?.updateMenuChanged()
+        NookState.shared.show(NookActivity(
+            id: "update", symbol: "arrow.down.circle.fill", tint: .blue,
+            title: String(localized: "Updating…"), trailingText: release.version, duration: 60))
+        Task {
+            do {
+                try await UpdateInstaller.install(release) // quits Nook on success
+            } catch {
+                isInstalling = false
+                AppDelegate.shared?.updateMenuChanged()
+                NookState.shared.show(NookActivity(id: "update", symbol: "arrow.down.circle.fill", duration: 0.1))
+                informInstallFailed(release, error)
+            }
+        }
+    }
+
     /// Semantic-version comparison ("0.10.0" > "0.9.1"); pre-release suffixes are ignored.
     nonisolated static func isNewer(_ a: String, than b: String) -> Bool {
         func parts(_ v: String) -> [Int] {
@@ -105,13 +136,40 @@ final class Updater: ObservableObject {
 
     // MARK: Alerts
 
-    private func promptToDownload(_ release: Release) {
+    private func promptToUpdate(_ release: Release) {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = String(localized: "Nook \(release.version) is available")
-        alert.informativeText = String(localized: "You have version \(Self.currentVersion). Open the download page?")
-        alert.addButton(withTitle: String(localized: "Download"))
+        alert.informativeText = String(localized: "You have version \(Self.currentVersion). Nook will restart to finish updating.")
+        alert.addButton(withTitle: String(localized: "Update Now"))
         alert.addButton(withTitle: String(localized: "Later"))
+        alert.addButton(withTitle: String(localized: "Release Notes"))
+        switch alert.runModal() {
+        case .alertFirstButtonReturn: installAvailable()
+        case .alertThirdButtonReturn: NSWorkspace.shared.open(release.page)
+        default: break
+        }
+    }
+
+    private func informInstallFailed(_ release: Release, _ error: Error) {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        switch error as? UpdateInstaller.Failure {
+        case .notInHomebrewYet:
+            alert.messageText = String(localized: "The update hasn't reached Homebrew yet")
+            alert.informativeText = String(localized: "Nook \(release.version) usually reaches Homebrew within an hour. Try again later, or download it now.")
+        case .notWritable:
+            alert.messageText = String(localized: "Nook can't update itself here")
+            alert.informativeText = String(localized: "Its folder isn't writable. Download the new version and replace Nook.app.")
+        case .checksum, .invalidBundle:
+            alert.messageText = String(localized: "The download couldn't be verified")
+            alert.informativeText = String(localized: "Nothing was changed. Download the new version from GitHub instead.")
+        default:
+            alert.messageText = String(localized: "Couldn't download the update")
+            alert.informativeText = String(localized: "Check your internet connection and try again.")
+        }
+        alert.addButton(withTitle: String(localized: "Open Download Page"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
         if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(release.page) }
     }
 

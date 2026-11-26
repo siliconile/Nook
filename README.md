@@ -58,8 +58,9 @@ clickable `- [ ]` checkboxes. Saved as you type to `notes.md`.
 **Shelf** — drag files onto the notch to park them; drag them back out to any app,
 double-click to open, right-click to reveal in Finder.
 
-**Updates** — Nook checks GitHub Releases once a day (can be turned off) and offers the
-download when a new version is out; **Check for Updates…** is in the menu-bar menu.
+**Updates** — Nook checks GitHub Releases once a day (can be turned off). **Update Now**
+installs the new version and restarts Nook (through `brew upgrade` when installed with
+Homebrew); **Check for Updates…** is in the menu-bar menu.
 
 **Languages** — English and Arabic (العربية). Nook follows your system language; to pick a
 language just for Nook, use **System Settings → General → Language & Region → Applications**.

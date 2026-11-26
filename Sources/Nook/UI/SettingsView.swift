@@ -101,7 +101,8 @@ struct SettingsView: View {
                     Text("Version \(Updater.currentVersion)").foregroundStyle(.secondary)
                     Spacer()
                     if let v = updater.available?.version {
-                        Button("Download \(v)") { Updater.shared.openDownloadPage() }
+                        Button("Update to \(v)") { Updater.shared.installAvailable() }
+                            .disabled(updater.isInstalling)
                     } else {
                         Button("Check Now") { Task { await Updater.shared.check(userInitiated: true) } }
                             .disabled(updater.isChecking)

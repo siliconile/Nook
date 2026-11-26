@@ -6,6 +6,18 @@ All notable changes to Nook are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-26
+
+### Added
+- **Update Now** installs updates in place and restarts Nook, from the menu, the update
+  alert or Settings. Homebrew installs run `brew upgrade --cask nook-notch`; other installs
+  download the release zip, check its sha256, bundle id and signature, then swap the app.
+  If anything fails Nook keeps running and offers the download page. Log:
+  `~/Library/Logs/Nook/update.log`.
+
+### Changed
+- The Homebrew cask is bumped within an hour of a release (was six hours).
+
 ## [0.3.0] - 2026-11-26
 
 ### Added

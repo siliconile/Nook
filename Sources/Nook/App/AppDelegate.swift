@@ -35,6 +35,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         startModules()
         Updater.shared.startAutomaticChecks()
+        // Debug aid: `Nook --self-update` installs the latest release without asking.
+        if CommandLine.arguments.contains("--self-update") {
+            Task {
+                await Updater.shared.check(userInitiated: false)
+                Updater.shared.installAvailable()
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -83,6 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.image = NSImage(systemSymbolName: "capsule.portrait.tophalf.filled", accessibilityDescription: "Nook")
             ?? NSImage(systemSymbolName: "rectangle.topthird.inset.filled", accessibilityDescription: "Nook")
         let menu = NSMenu()
+        menu.autoenablesItems = false
         menu.addItem(withTitle: String(localized: "Open Nook"), action: #selector(openNotch), keyEquivalent: "").target = self
         menu.addItem(withTitle: String(localized: "Settings…"), action: #selector(openSettings), keyEquivalent: ",").target = self
         menu.addItem(withTitle: String(localized: "About Nook"), action: #selector(showAbout), keyEquivalent: "").target = self
@@ -99,7 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func checkForUpdates() {
         if Updater.shared.available != nil {
-            Updater.shared.openDownloadPage()
+            Updater.shared.installAvailable()
         } else {
             Task { await Updater.shared.check(userInitiated: true) }
         }
@@ -107,8 +115,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Reflects an available update in the menu-bar menu.
     func updateMenuChanged() {
-        if let v = Updater.shared.available?.version {
-            updateItem?.title = String(localized: "Download Nook \(v)…")
+        updateItem?.isEnabled = !Updater.shared.isInstalling
+        if Updater.shared.isInstalling {
+            updateItem?.title = String(localized: "Updating…")
+        } else if let v = Updater.shared.available?.version {
+            updateItem?.title = String(localized: "Update Nook to \(v)")
         } else {
             updateItem?.title = String(localized: "Check for Updates…")
         }

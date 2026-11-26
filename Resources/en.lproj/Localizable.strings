@@ -26,8 +26,6 @@
 "Delete" = "Delete";
 "Done" = "Done";
 "Download" = "Download";
-"Download %@" = "Download %@";
-"Download Nook %@…" = "Download Nook %@…";
 "Drop files here" = "Drop files here";
 "Edit" = "Edit";
 "Focus" = "Focus";
@@ -104,7 +102,6 @@
 "Updates" = "Updates";
 "Version %@" = "Version %@";
 "Yesterday" = "Yesterday";
-"You have version %@. Open the download page?" = "You have version %@. Open the download page?";
 "You're up to date" = "You're up to date";
 "item" = "item";
 "items" = "items";
@@ -120,3 +117,18 @@
 "AI Usage (Claude, Codex, Antigravity)" = "AI Usage (Claude, Codex, Antigravity)";
 "Install the agy CLI to see usage" = "Install the agy CLI to see usage";
 "Sign in with the agy CLI to see usage" = "Sign in with the agy CLI to see usage";
+"Updating…" = "Updating…";
+"Update Now" = "Update Now";
+"Release Notes" = "Release Notes";
+"Update Nook to %@" = "Update Nook to %@";
+"Update to %@" = "Update to %@";
+"Open Download Page" = "Open Download Page";
+"Cancel" = "Cancel";
+"You have version %@. Nook will restart to finish updating." = "You have version %@. Nook will restart to finish updating.";
+"The update hasn't reached Homebrew yet" = "The update hasn't reached Homebrew yet";
+"Nook %@ usually reaches Homebrew within an hour. Try again later, or download it now." = "Nook %@ usually reaches Homebrew within an hour. Try again later, or download it now.";
+"Nook can't update itself here" = "Nook can't update itself here";
+"Its folder isn't writable. Download the new version and replace Nook.app." = "Its folder isn't writable. Download the new version and replace Nook.app.";
+"The download couldn't be verified" = "The download couldn't be verified";
+"Nothing was changed. Download the new version from GitHub instead." = "Nothing was changed. Download the new version from GitHub instead.";
+"Couldn't download the update" = "Couldn't download the update";

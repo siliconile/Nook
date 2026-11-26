@@ -26,8 +26,6 @@
 "Delete" = "حذف";
 "Done" = "تم";
 "Download" = "تنزيل";
-"Download %@" = "تنزيل %@";
-"Download Nook %@…" = "تنزيل Nook %@…";
 "Drop files here" = "أفلت الملفات هنا";
 "Edit" = "تحرير";
 "Focus" = "تركيز";
@@ -104,7 +102,6 @@
 "Updates" = "التحديثات";
 "Version %@" = "الإصدار %@";
 "Yesterday" = "أمس";
-"You have version %@. Open the download page?" = "لديك الإصدار %@. هل تريد فتح صفحة التنزيل؟";
 "You're up to date" = "لديك أحدث إصدار";
 "item" = "عنصر";
 "items" = "عناصر";
@@ -120,3 +117,18 @@
 "AI Usage (Claude, Codex, Antigravity)" = "استخدام الذكاء الاصطناعي (Claude وCodex وAntigravity)";
 "Install the agy CLI to see usage" = "ثبّت agy CLI لعرض الاستخدام";
 "Sign in with the agy CLI to see usage" = "سجّل الدخول عبر agy CLI لعرض الاستخدام";
+"Updating…" = "جارٍ التحديث…";
+"Update Now" = "حدّث الآن";
+"Release Notes" = "ملاحظات الإصدار";
+"Update Nook to %@" = "تحديث Nook إلى %@";
+"Update to %@" = "التحديث إلى %@";
+"Open Download Page" = "فتح صفحة التنزيل";
+"Cancel" = "إلغاء";
+"You have version %@. Nook will restart to finish updating." = "لديك الإصدار %@. سيُعاد تشغيل Nook لإكمال التحديث.";
+"The update hasn't reached Homebrew yet" = "التحديث لم يصل إلى Homebrew بعد";
+"Nook %@ usually reaches Homebrew within an hour. Try again later, or download it now." = "يصل Nook %@ عادةً إلى Homebrew خلال ساعة. حاول لاحقًا، أو نزّله الآن.";
+"Nook can't update itself here" = "لا يستطيع Nook تحديث نفسه هنا";
+"Its folder isn't writable. Download the new version and replace Nook.app." = "لا يمكن الكتابة في مجلده. نزّل الإصدار الجديد واستبدل Nook.app.";
+"The download couldn't be verified" = "تعذّر التحقق من التنزيل";
+"Nothing was changed. Download the new version from GitHub instead." = "لم يتغير شيء. نزّل الإصدار الجديد من GitHub بدلًا من ذلك.";
+"Couldn't download the update" = "تعذّر تنزيل التحديث";
