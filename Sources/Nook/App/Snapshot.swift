@@ -16,6 +16,12 @@ enum Snapshot {
             Demo.render(to: URL(fileURLWithPath: args[g + 1]))
             return true
         }
+        if let s = args.firstIndex(of: "--demo-shots"), s + 1 < args.count {
+            Pref.registerDefaults()
+            isRendering = true
+            Demo.renderShots(to: URL(fileURLWithPath: args[s + 1], isDirectory: true))
+            return true
+        }
         guard let i = args.firstIndex(of: "--snapshot"), i + 1 < args.count else { return false }
         let dir = URL(fileURLWithPath: args[i + 1], isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

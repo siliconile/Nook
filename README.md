@@ -16,6 +16,8 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/siliconile/Nook" alt="MIT license"></a>
 </p>
 
+<p align="center"><a href="https://siliconile.github.io/Nook/"><b>siliconile.github.io/Nook</b></a></p>
+
 <p align="center">
   <img src="docs/demo.gif" width="720" alt="Nook demo: the notch opens to Now Playing, then shows the volume HUD and a focus timer">
 </p>
@@ -179,6 +181,9 @@ Tools/        make-icon.swift (regenerates the app icon)
   checking layouts without Screen Recording permission.
 - `.build/debug/Nook --demo-gif docs/demo.gif` re-renders the README demo from the real
   views with sample data.
+- `.build/debug/Nook --demo-shots docs/img` renders the website's stills (PNG; the site uses
+  JPEG copies) with the same sample data. The website is `docs/index.html`, served by
+  GitHub Pages from the `docs` folder.
 - Design tokens (sizes, spacing, animation timing, blur) live in `Sources/Nook/UI/Theme.swift`.
 - `swift Tools/make-icon.swift` regenerates `docs/icon.png` and `Resources/AppIcon.icns`.
 

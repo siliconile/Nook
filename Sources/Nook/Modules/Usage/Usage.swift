@@ -75,8 +75,11 @@ final class UsageStore: ObservableObject {
     }
 
     /// Refreshes all agents. Claude and Antigravity call out, so they are throttled.
+    /// Sample numbers for the README / website renders (never the viewer's own usage).
+    func showSample(_ rows: [UsageAgent: [AgentUsage]]) { usage = rows }
+
     func refresh(force: Bool = false) {
-        guard refreshTask == nil else { return }
+        guard refreshTask == nil, !Snapshot.isRendering else { return }
         let remote = force || lastRemoteFetch.map { Date().timeIntervalSince($0) > 120 } ?? true
         refreshTask = Task {
             usage[.codex] = [await Task.detached { CodexUsageSource.read() }.value]

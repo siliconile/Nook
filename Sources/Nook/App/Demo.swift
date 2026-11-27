@@ -69,6 +69,69 @@ enum Demo {
         writeGIF(frames, to: url)
     }
 
+    /// `Nook --demo-shots <dir>` writes still PNGs of the same sample states at 2x
+    /// (for the website and the social preview), with no backdrop or menu bar.
+    static func renderShots(to dir: URL) {
+        let state = NookState.shared
+        state.notchSize = CGSize(width: 185, height: 32)
+        loadSampleData()
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        /// `zoom` renders at 2 x zoom and keeps the top-centre crop of the canvas's size,
+        /// so a thin closed notch fills the picture without re-laying out the menu bar.
+        func save(_ name: String, _ view: some View, size: CGSize, zoom: CGFloat = 1) {
+            let r = ImageRenderer(content: view.environmentObject(state)
+                .frame(width: size.width, height: size.height))
+            r.scale = 2 * zoom
+            let full = r.cgImage
+            let crop = CGRect(x: (size.width * 2 * zoom - size.width * 2) / 2, y: 0,
+                              width: size.width * 2, height: size.height * 2)
+            guard let img = zoom == 1 ? full : full?.cropping(to: crop),
+                  let dest = CGImageDestinationCreateWithURL(dir.appendingPathComponent("\(name).png") as CFURL,
+                                                             UTType.png.identifier as CFString, 1, nil) else { return }
+            CGImageDestinationAddImage(dest, img, nil)
+            CGImageDestinationFinalize(dest)
+            print("Wrote \(name).png")
+        }
+        let wide = CGSize(width: canvas.width, height: canvas.height)
+
+        state.isOpen = true
+        for (name, tab) in [("home", NookTab.home), ("focus", .pomodoro)] {
+            state.selectedTab = tab
+            save("open-\(name)", ZStack(alignment: .top) { Backdrop(); NotchRootView() }, size: wide)
+        }
+        // A portrait screen for the website's hero frame.
+        state.selectedTab = .home
+        save("hero-home", ZStack(alignment: .top) { Backdrop(); NotchRootView() }, size: CGSize(width: 600, height: 700))
+
+        // AI Usage with sample numbers.
+        let hour: TimeInterval = 3600
+        UsageStore.shared.showSample([
+            .claude: [AgentUsage(status: .ok, fiveHour: UsageWindow(usedPercent: 38, resetsAt: Date().addingTimeInterval(2.4 * hour)),
+                                 weekly: UsageWindow(usedPercent: 61, resetsAt: Date().addingTimeInterval(52 * hour)))],
+            .codex: [AgentUsage(status: .ok, fiveHour: UsageWindow(usedPercent: 12, resetsAt: Date().addingTimeInterval(4.1 * hour)),
+                                weekly: UsageWindow(usedPercent: 27, resetsAt: Date().addingTimeInterval(97 * hour)))],
+            .antigravity: [AgentUsage(status: .ok, group: "Gemini", fiveHour: UsageWindow(usedPercent: 74, resetsAt: Date().addingTimeInterval(1.2 * hour)),
+                                      weekly: UsageWindow(usedPercent: 45, resetsAt: Date().addingTimeInterval(70 * hour)))],
+        ])
+        state.selectedTab = .usage
+        save("open-usage", ZStack(alignment: .top) { Backdrop(); NotchRootView() }, size: wide)
+
+        // Closed states zoomed 2x on the top of the screen, so the thin notch fills the picture.
+        state.isOpen = false
+        state.selectedTab = .home
+        save("closed-music", ZStack(alignment: .top) { Backdrop(); NotchRootView() }, size: wide, zoom: 2)
+        state.show(NookActivity(id: "hud.volume", symbol: "speaker.wave.2.fill", progress: 0.62, duration: 60))
+        save("closed-volume", ZStack(alignment: .top) { Backdrop(); NotchRootView() }, size: wide, zoom: 2)
+        state.show(NookActivity(id: "x", symbol: "x", duration: 0.01))
+        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+        let pomodoro = PomodoroModel.shared
+        pomodoro.isRunning = true
+        pomodoro.remaining = 24 * 60 + 9
+        save("closed-focus", ZStack(alignment: .top) { Backdrop(); NotchRootView() }, size: wide, zoom: 2)
+        pomodoro.isRunning = false
+    }
+
     // MARK: Frames
 
     private struct TransitionFrame: View {
