@@ -6,6 +6,19 @@ All notable changes to Nook are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-27
+
+### Fixed
+- **AI Usage → Codex** showed "No usage recorded yet": newer Codex versions no longer write
+  rate limits to their session logs. Nook now asks `codex app-server` for them (no tokens
+  used) and only falls back to the logs.
+- **AI Usage → Claude** showed "Session expired" whenever the Claude Code login had timed
+  out. Nook now runs `claude -p /usage` (no tokens used), which makes Claude Code renew its
+  login, and tries again.
+
+### Changed
+- The README demo shows the current design (floating tab bar, Focus wheel, shuffle/repeat).
+
 ## [0.4.0] - 2026-11-26
 
 ### Added

@@ -99,6 +99,8 @@ final class UsageStore: ObservableObject {
 /// The numbers only change while Codex is used, so the latest event is current.
 enum CodexUsageSource {
     static func read() -> AgentUsage {
+        // Newer Codex builds log `rate_limits: null`, so ask the app-server first.
+        if let live = AppServer.readRateLimits() { return live }
         let root = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".codex/sessions")
         guard let files = recentSessionFiles(in: root), !files.isEmpty else {
             return AgentUsage(status: .unavailable(String(localized: "Use the codex CLI to see usage")))
@@ -147,6 +149,70 @@ enum CodexUsageSource {
         }
         return nil
     }
+
+    /// `codex app-server` (JSON-RPC over stdio) answers `account/rateLimits/read`
+    /// from the account, with no conversation or tokens used.
+    enum AppServer {
+        static func readRateLimits() -> AgentUsage? {
+            guard let codex = findExecutable("codex") else { return nil }
+            let p = Process()
+            p.executableURL = codex
+            p.arguments = ["app-server"]
+            p.currentDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
+            let input = Pipe(), out = Pipe()
+            p.standardInput = input
+            p.standardOutput = out
+            p.standardError = FileHandle.nullDevice
+            // Writing to a pipe whose reader already exited must not kill Nook.
+            signal(SIGPIPE, SIG_IGN)
+            guard (try? p.run()) != nil else { return nil }
+            defer { if p.isRunning { p.terminate() } }
+            let killer = DispatchWorkItem { if p.isRunning { p.terminate() } }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 20, execute: killer)
+            defer { killer.cancel() }
+
+            let requests = [
+                #"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"nook","version":"1"}}}"#,
+                #"{"jsonrpc":"2.0","method":"initialized"}"#,
+                #"{"jsonrpc":"2.0","id":2,"method":"account/rateLimits/read"}"#,
+            ]
+            try? input.fileHandleForWriting.write(contentsOf: Data((requests.joined(separator: "\n") + "\n").utf8))
+
+            var buffer = Data()
+            while true {
+                let chunk = out.fileHandleForReading.availableData
+                if chunk.isEmpty { return nil } // EOF: exited or killed
+                buffer.append(chunk)
+                while let nl = buffer.firstIndex(of: 0x0A) {
+                    let line = buffer[buffer.startIndex..<nl]
+                    buffer.removeSubrange(buffer.startIndex...nl)
+                    guard let obj = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
+                          (obj["id"] as? NSNumber)?.intValue == 2 else { continue }
+                    guard let result = obj["result"] as? [String: Any],
+                          let limits = result["rateLimits"] as? [String: Any] else { return nil }
+                    var usage = AgentUsage(status: .ok, updatedAt: Date())
+                    for key in ["primary", "secondary"] {
+                        guard let w = limits[key] as? [String: Any] else { continue }
+                        let minutes = (w["windowDurationMins"] as? NSNumber)?.intValue ?? 0
+                        let window = normalized(UsageWindow(
+                            usedPercent: (w["usedPercent"] as? NSNumber)?.doubleValue ?? 0,
+                            resetsAt: (w["resetsAt"] as? NSNumber).map { Date(timeIntervalSince1970: $0.doubleValue) }))
+                        if minutes >= 24 * 60 { usage.weekly = window } else { usage.fiveHour = window }
+                    }
+                    return usage
+                }
+            }
+        }
+    }
+}
+
+/// GUI apps don't get the shell PATH, so look in the usual install locations.
+private func findExecutable(_ name: String) -> URL? {
+    let home = FileManager.default.homeDirectoryForCurrentUser.path
+    return ["\(home)/.local/bin/\(name)", "/opt/homebrew/bin/\(name)", "/usr/local/bin/\(name)",
+            "\(home)/.claude/local/\(name)"]
+        .first { FileManager.default.isExecutableFile(atPath: $0) }
+        .map { URL(fileURLWithPath: $0) }
 }
 
 /// A window whose reset time has passed has started over.
@@ -167,16 +233,46 @@ private func parseISODate(_ s: String) -> Date? {
 
 /// Uses the token the Claude Code CLI stores in the login Keychain (or
 /// ~/.claude/.credentials.json) and asks the same usage endpoint `/usage` shows.
-/// The token is never refreshed here: refreshing would rotate it under Claude Code.
+/// Nook never refreshes the token itself (that would rotate it under Claude Code);
+/// when it has expired, it runs `claude -p /usage`, which costs no tokens and makes
+/// Claude Code refresh and store a new one.
 enum ClaudeUsageSource {
     static func fetch() async -> AgentUsage {
-        guard let creds = await Task.detached(operation: { readCredentials() }).value else {
-            return AgentUsage(status: .unavailable(String(localized: "Sign in with the claude CLI to see usage")))
-        }
-        if let expires = creds.expiresAt, expires < Date() {
-            return AgentUsage(status: .unavailable(String(localized: "Session expired — run claude once to refresh")))
-        }
+        let first = await fetchOnce()
+        guard first.needsRefresh else { return first.usage }
+        guard await Task.detached(operation: { refreshViaCLI() }).value else { return first.usage }
+        return await fetchOnce().usage
+    }
 
+    private static func fetchOnce() async -> (usage: AgentUsage, needsRefresh: Bool) {
+        let expired = AgentUsage(status: .unavailable(String(localized: "Session expired — run claude once to refresh")))
+        guard let creds = await Task.detached(operation: { readCredentials() }).value else {
+            return (AgentUsage(status: .unavailable(String(localized: "Sign in with the claude CLI to see usage"))), false)
+        }
+        if let expires = creds.expiresAt, expires < Date() { return (expired, true) }
+        let (usage, code) = await request(creds)
+        return code == 401 || code == 403 ? (expired, true) : (usage, false)
+    }
+
+    /// `claude -p /usage` is handled locally by Claude Code (0 tokens) but refreshes its login.
+    private static func refreshViaCLI() -> Bool {
+        guard let claude = findExecutable("claude") else { return false }
+        let p = Process()
+        p.executableURL = claude
+        p.arguments = ["-p", "/usage", "--output-format", "json"]
+        p.currentDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
+        p.standardInput = FileHandle.nullDevice
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
+        guard (try? p.run()) != nil else { return false }
+        let killer = DispatchWorkItem { if p.isRunning { p.terminate() } }
+        DispatchQueue.global().asyncAfter(deadline: .now() + 45, execute: killer)
+        p.waitUntilExit()
+        killer.cancel()
+        return p.terminationStatus == 0
+    }
+
+    private static func request(_ creds: Credentials) async -> (AgentUsage, Int) {
         var req = URLRequest(url: URL(string: "https://api.anthropic.com/api/oauth/usage")!, timeoutInterval: 15)
         req.setValue("Bearer \(creds.token)", forHTTPHeaderField: "Authorization")
         req.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
@@ -184,20 +280,17 @@ enum ClaudeUsageSource {
         do {
             let (data, response) = try await URLSession.shared.data(for: req)
             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-            if code == 401 || code == 403 {
-                return AgentUsage(status: .unavailable(String(localized: "Session expired — run claude once to refresh")))
-            }
             guard code == 200, let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                return AgentUsage(status: .unavailable(String(localized: "Couldn't load usage")))
+                return (AgentUsage(status: .unavailable(String(localized: "Couldn't load usage"))), code)
             }
             func window(_ key: String) -> UsageWindow? {
                 guard let w = obj[key] as? [String: Any],
                       let used = (w["utilization"] as? NSNumber)?.doubleValue else { return nil }
                 return normalized(UsageWindow(usedPercent: used, resetsAt: (w["resets_at"] as? String).flatMap(parseISODate)))
             }
-            return AgentUsage(status: .ok, fiveHour: window("five_hour"), weekly: window("seven_day"), updatedAt: Date())
+            return (AgentUsage(status: .ok, fiveHour: window("five_hour"), weekly: window("seven_day"), updatedAt: Date()), code)
         } catch {
-            return AgentUsage(status: .unavailable(String(localized: "Couldn't load usage")))
+            return (AgentUsage(status: .unavailable(String(localized: "Couldn't load usage"))), 0)
         }
     }
 
@@ -238,7 +331,7 @@ enum ClaudeUsageSource {
 /// weekly bucket with `remaining_fraction` and `reset_time`.
 enum AntigravityUsageSource {
     static func read() -> [AgentUsage] {
-        guard let agy = executable() else {
+        guard let agy = findExecutable("agy") else {
             return [AgentUsage(status: .unavailable(String(localized: "Install the agy CLI to see usage")))]
         }
         let p = Process()
@@ -283,14 +376,6 @@ enum AntigravityUsageSource {
         if name.hasPrefix("Gemini") { return "Gemini" }
         if name.hasPrefix("Claude and GPT") { return "Claude & GPT" }
         return name
-    }
-
-    /// GUI apps don't get the shell PATH, so look in the usual install locations.
-    private static func executable() -> URL? {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        return ["\(home)/.local/bin/agy", "/opt/homebrew/bin/agy", "/usr/local/bin/agy"]
-            .first { FileManager.default.isExecutableFile(atPath: $0) }
-            .map { URL(fileURLWithPath: $0) }
     }
 }
 
